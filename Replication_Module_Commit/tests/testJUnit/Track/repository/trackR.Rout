@@ -1,0 +1,43 @@
+
+R version 3.0.1 (2013-05-16) -- "Good Sport"
+Copyright (C) 2013 The R Foundation for Statistical Computing
+Platform: x86_64-unknown-linux-gnu (64-bit)
+
+R é um software livre e vem sem GARANTIA ALGUMA.
+Você pode redistribuí-lo sob certas circunstâncias.
+Digite 'license()' ou 'licence()' para detalhes de distribuição.
+
+R é um projeto colaborativo com muitos contribuidores.
+Digite 'contributors()' para obter mais informações e
+'citation()' para saber como citar o R ou pacotes do R em publicações.
+
+Digite 'demo()' para demonstrações, 'help()' para o sistema on-line de ajuda,
+ou 'help.start()' para abrir o sistema de ajuda em HTML no seu navegador.
+Digite 'q()' para sair do R.
+
+[Área de trabalho anterior carregada]
+
+> var=read.table("./PV/Var_Questao.txt",sep=",", header=TRUE)
+Mensagens de aviso perdidas:
+In read.table("./PV/Var_Questao.txt", sep = ",", header = TRUE) :
+  incomplete final line found by readTableHeader on './PV/Var_Questao.txt'
+> nome_db= read.table("./DB/database.txt") #nome da base com os arquivos
+> nome_db= as.character(nome_db[7,]) ## Aqui eu pego a terceira linha do arquivo
+> banco = read.csv(nome_db, header =T) ###aqui vai o banco de dados inteiro
+> 
+> parametro <- var[1]
+> 
+> num_cat= as.data.frame(table(banco[ ,names(parametro)]))
+> 
+> if(dim(num_cat)[1]<=5){
++   tipo_var = 0
++ }
+> if(dim(num_cat)[1]>5){
++   tipo_var = 1
++ }
+> 
+> write.table(tipo_var, "./PV/tipo_var.txt", col.names=F, row.names=F, quote=FALSE) ####AQUI está o arquivo com o tipo da variável
+> 
+> proc.time()
+  usuário   sistema decorrido 
+    0.736     0.052     0.783 
