@@ -1,0 +1,371 @@
+\documentclass[12pt]{article}
+
+\usepackage[a4paper, width=16cm, height=23cm]{geometry}
+
+\usepackage{amssymb, amsxtra}
+\usepackage{amsthm, amsfonts, amsmath}
+\usepackage{caption}
+\usepackage{color}
+\usepackage{comment}
+\usepackage{enumerate}
+\usepackage{float}
+\usepackage[T1]{fontenc}
+\usepackage{footnote}
+\usepackage{graphicx, graphics}
+\usepackage{indentfirst}
+\usepackage[latin1]{inputenc}
+\usepackage{longtable}
+            \setlongtables
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{setspace}
+\usepackage[hang]{subfigure}
+\usepackage{Sweave}
+\usepackage[normalem]{ulem}
+\usepackage{url}
+\usepackage{verbatim}
+
+%-----------------------------------
+% Escolhendo a variavel dependente -
+%-----------------------------------
+<<label=vardependente, echo = F, results = hide>>=
+
+var_q <- read.table("./system_Files/DescriptiveAnalysis.txt", header=F, sep=",")
+
+vardependente <- var_q$V3
+
+@
+
+
+%----------------------------------------------------------------------------------------%
+
+%------------------------------------ Comandos Novos ------------------------------------%
+\newcommand{\mat}[1]{\mbox{\boldmath{$#1$}}}            %
+\newcommand{\ds}[1]{\displaystyle #1}                   % Facilita a digitacao do displaystyle
+\newcommand{\R}{\texttt{R}}                             %
+                                                        %
+\newcommand{\nomedavariavel}{\Sexpr{vardependente}}     % Muda o nome da variavel
+                                                        %
+\renewcommand{\baselinestretch}{1.5}                    % Espacamento entre linhas
+\setlength{\parindent}{2.0cm}                           % Onde comeca o paragrafo
+\setcounter{secnumdepth}{5}                             % 
+\setcounter{tocdepth}{5}                                %
+\sloppy                                                 %
+%----------------------------------------------------------------------------------------%
+
+%----------------------------------------------------------------------------------------%
+\renewcommand{\familydefault}{\sfdefault}
+\captionsetup{labelsep=endash, format=hang, width=\textwidth}
+%----------------------------------------------------------------------------------------%
+
+%----------------------------------------------------------------------------------------%
+\begin{document}
+
+
+<<label=freq, echo=F, results=hide>>=
+#------------------------------
+# Carregando o pacote FBasics -
+#------------------------------
+require(fBasics)
+
+#-------------------------------------------------------------------
+# Leitura do arquivo com tres colunas ID, sexo, fenótipo em estudo  -
+#-------------------------------------------------------------------
+
+########  vamos colocar esta parte dinámica!  junho 13 de 2014
+#######em database a linha dos fenótipos é a linha 3 e fenótipos e pcas é a linha 7
+
+nome_db= read.table("./system_Files/DataBase.txt") #nome da base com os arquivos
+nome_db= as.character(nome_db[7,]) ## sexta linha do arquivo que corresponde aos fenotipos
+Fenota= read.table(nome_db, head=T,sep=" ") ###banco com os fenótipos
+
+
+
+
+
+##Fenot = read.table('./system_Files/DescriptiveAnalysis.txt', head=T, sep=',')  ### forma antiga de chamar os parametros
+
+############## Forma nova de chamar os parâmetros é um arquivo com (IID,Sexo, fenotipo) o fenótipo escolhido pelo usuario
+
+parametros= read.table("./system_Files/DescriptiveAnalysis.txt", head=T,sep=",") #nome da base com os arquivos
+
+parametros1<-colnames(parametros)
+
+#cov=conjunto de covariáveis escolhidas pelo usuario
+Fenot<-subset(Fenota, selec=c(parametros1))
+
+
+#--------------------------
+# Trocar o -9 por NA   -
+#--------------------------
+
+Fenot[Fenot==-9] <- NA
+
+
+
+
+#--------------------
+# Variavel escolhida    ** Na programacao geral esta variavel e a variavel escolhida pelo usuario
+#--------------------
+
+Variavel <- Fenot[ , 3]
+
+
+
+#---------------------------------------------------------------
+#  estatísticas básicas e arredondamento para 2 caixas decimais -
+#--------------------------------------------------------------
+
+
+b <- basicStats(Variavel)
+b <- round(b, 2)
+
+#----------------------------------------------------
+# Anexando o coeficiente de variacao as descritivas -
+#----------------------------------------------------
+desvio <- b[14, 1]
+media  <- b[7, 1]
+cv = (desvio/media*100)
+cv <- round(cv, 2)
+b[17, ] <- cv
+
+
+#--------------------------
+# Renomeando as variáveis -
+#--------------------------
+
+nj <- c ("nobs", "NAs", "Minimum", "Maximum", "1. Quartile", "3. Quartile", "Mean", "Median","sum", "SE Mean", "LCL Mean", "UCL Mean", "Variance", "Stdev", "Skewness", "Kurtosis", "cv")        
+rownames(b) <- nj
+
+#--------------------------
+# Estratificacao por sexo -
+#--------------------------
+sex <- Fenot[ , 2]
+
+#--------------------
+# Estatura por Sexo -
+#--------------------
+
+medias = tapply(Variavel, sex, mean, na.rm=T)
+desvios = tapply(Variavel, sex, sd, na.rm=T)
+CVs = desvios/medias*100
+Minimos = tapply(Variavel, sex, min, na.rm=T)
+Maximos = tapply(Variavel, sex, max, na.rm=T)
+
+#--------------------------
+# Numero total de pessoas -
+#--------------------------
+
+n <- length(Variavel)
+(tod = Variavel)
+nas <- sum(is.na(tod))
+#N = length(Variavel) - sum(is.na(tod))
+
+#---------
+# Homens -
+#---------
+
+length(Variavel[sex==1])
+(hom = Variavel[sex==1])
+sum(is.na(hom))
+n_h = length(Variavel[sex==1]) - sum(is.na(hom))
+
+#-----------
+# Mulheres -
+#-----------
+
+length(Variavel[sex==2])
+(mul = Variavel[sex==2])
+sum(is.na(mul))
+n_m = length(Variavel[sex==2]) - sum(is.na(mul))
+
+Hist = hist(Variavel, plot=F)
+Hist$breaks
+
+
+#---------------------
+# Teste de normalidade-
+#---------------------
+
+#-------
+# Wilks-
+#-------
+
+
+W<-Fenot[,3]
+test<-shapiro.test(W)
+
+pvalor<-test$p.value
+
+wa<-test$statistic[1]
+names(wa) = NULL
+
+
+
+#-----------
+# kolmogorow-
+#-----------
+
+k<-ks.test(W,pnorm,mean(W, na.rm=TRUE),sd(W, na.rm=TRUE))
+kolm<-k$statistic[1]
+names(kolm) = NULL
+
+pk<-k$p.value
+
+@
+
+
+
+
+\section*{Results}
+
+
+fenotipo dinamico!!!
+
+The objective of this report is to present some statistics to describe the average behavior and
+variability of information contained in the phenotype under analysis.
+
+\subsection*{Descriptive Statistics}
+
+The phenotype involved in this study is \textit{\nomedavariavel}\, of people who participated in the project under study. The total number of individuals for this phenotype is \Sexpr{n}, and for this specific variable the number of values \textit{missing} is \Sexpr{nas}. 
+%Since it is a continuous variable, a table with summary statistics is presented as well as the histogram and boxplot of the variable 
+%\textit{\nomedavariavel} as well as the respective histograms of the variable stratified by gender.
+
+The corresponding descriptive statistics are displayed in the Table~\ref{tab:descritivas}. We note that the mean of \textit{\nomedavariavel}\, for the group is \Sexpr{round(b[7, 1], 3)} \, with a standard deviation of \Sexpr{round(b[14, 1], 3)} \, and the variability is \Sexpr{round(cv, 2)}\%  for values of  {\textit{\nomedavariavel}}. Other measures can be seen in the same table, by example \textit{Skewness}
+indicating the degree of asymmetry or \textit{Kurtosis} indicating the curve shape, this values for Normal distribution are near to $0$ and $3$, respectively. 
+
+\begin{table}[H]
+\begin{center}
+%\begin{tiny} 
+ \renewcommand{\arraystretch}{1.0}                				% Espacamento dentro da tabela
+ \setlength{\tabcolsep}{0.8pt}                      				% Define a largura da tabela
+ \setlength{\arrayrulewidth}{1\arrayrulewidth}  				    % Espessura da linha da tabela
+\caption{Descriptive Statistics for the variable \textit{\nomedavariavel}. \label{tab:descritivas}} 
+\begin{tabular}{lrr} \\ \hline \hline
+Statistics   & & Results                   \\ \hline
+nobs         & & \Sexpr{round(b[ 1, 1], 3)} \\
+NAs          & & \Sexpr{round(b[ 2, 1], 3)} \\
+Minimum      & & \Sexpr{round(b[ 3, 1], 3)} \\
+Maximum      & & \Sexpr{round(b[ 4, 1], 3)} \\
+1. Quartile  & & \Sexpr{round(b[ 5, 1], 3)} \\
+3. Quartile  & & \Sexpr{round(b[ 6, 1], 3)} \\
+Mean         & & \Sexpr{round(b[ 7, 1], 3)} \\
+Median       & & \Sexpr{round(b[ 8, 1], 3)} \\
+SE Mean      & & \Sexpr{round(b[10, 1], 3)} \\
+LCL Mean     & & \Sexpr{round(b[11, 1], 3)} \\
+UCL Mean     & & \Sexpr{round(b[12, 1], 3)} \\
+Variance     & & \Sexpr{round(b[13, 1], 3)} \\
+Stdev        & & \Sexpr{round(b[14, 1], 3)} \\
+Skewness     & & \Sexpr{round(b[15, 1], 3)} \\
+Kurtosis     & & \Sexpr{round(b[16, 1], 3)} \\
+VC           & & \Sexpr{round(b[17, 1], 3)} \\ \hline \hline
+\end{tabular}  
+%\end{tiny}
+\end{center}
+\end{table}
+
+\vspace{2 cm}
+
+The histogram of \textit{\nomedavariavel}, is presented in the Figure~\ref{fig:hist} to better visualize the distribution of this variable.  
+{{ \setkeys{Gin}{width=.5\textwidth}
+\begin{figure}[H]
+\centering
+<<label=fcgeral, eps=TRUE, echo=F, fig=T, include=T>>=
+par(mai=c(.5, .5, .2, .2))
+hist(Variavel, las=1, right=F, label=T, col="Lightyellow", xlab='', 
+     ylab="Frequency", main="", cex=.3)
+abline(h=0)
+@
+\caption{Histogram of \textit{\nomedavariavel}. \label{fig:hist}}
+\end{figure}
+}}
+
+In the Figure~\ref{fig:box} is displayed the boxplot to visualize different aspects of data distribution, such as position, variability, asymmetry and even the occurrence of outliers.
+{{ \setkeys{Gin}{width=.5\textwidth}
+\begin{figure}[H]
+\centering
+<<label=fcgeral1, eps=TRUE, echo=F, fig=T, include=T, width=5, height=4>>=
+par(mai=c(.5, .5, .2, .2))
+boxplot(Variavel, las=1, right=F, label=T, col="Lightblue", xlab='', ylab="Frequency", main="")#, ylim=c(0,500), xaxt='n')
+points(mean(Variavel), pch='+', cex=1.5, col='red')
+@
+\caption{Boxplot of \textit{\nomedavariavel}. \label{fig:box}}
+\end{figure}
+}}
+
+
+\newpage
+The summary of information of stratification of variable \textit{\nomedavariavel}\, by sex is presented in the Table~\ref{tab:estr}. 
+\begin{table}[H] 
+\centering
+\renewcommand{\arraystretch}{1.5}
+\setlength{\tabcolsep}{20pt}
+\caption{Comparison of \textit{\nomedavariavel}\, between men and women. \label{tab:estr}}
+\begin{tabular}{lcc}  \hline
+Statistics  & Mens (n=\Sexpr{n_h})         & Women (n=\Sexpr{n_m})        \\  \hline
+Mean        & \Sexpr{round(medias[1], 4)}  & \Sexpr{round(medias[2], 4)}  \\
+SE Mean     & \Sexpr{round(desvios[1], 4)} & \Sexpr{round(desvios[2], 4)} \\
+CV $(\%)$    & \Sexpr{round(CVs[1], 4)}     & \Sexpr{round(CVs[2], 4)}     \\
+Minimum     & \Sexpr{Minimos[1]}           & \Sexpr{Minimos[2]}           \\   
+Maximum     & \Sexpr{Maximos[1]}           & \Sexpr{Maximos[2]}           \\   \hline
+\end{tabular}
+\end{table}
+
+The distribution of phenotypes can be viewed in the Figures~\ref{fig:EstHomens} and \ref{fig:EstMulheres}.
+\begin{figure}[H]
+\centering
+\begin{minipage}[b]{0.4\linewidth}
+<<label=fchomens, eps=TRUE, include=T, echo=F, fig=T>>=
+par(mai=c(.7, .9, .2, .2))
+hist(Variavel[sex==1], las=1, breaks=Hist$breaks, xaxt='n', labels=T, main='', xlab='',
+     ylab="Frequency", right=F, col='lightblue')
+axis(1, at=Hist$breaks, pos=0)
+abline(h=0)
+@
+\caption{\textit{\nomedavariavel}\, of men. \label{fig:EstHomens}}
+\end{minipage}
+\begin{minipage}[b]{0.4\linewidth}
+<<label=fcmulheres, eps=TRUE, include=T, echo=F, fig=T>>=
+par(mai=c(.7, .9, .2, .2))
+hist(Variavel[sex==2], las=1, breaks=Hist$breaks, xaxt='n', labels=T, main='', xlab='',
+     ylab="Frequency", right=F, col='lightpink')
+axis(1, at=Hist$breaks, pos=0)
+abline(h=0)
+@
+\caption{\textit{\nomedavariavel}\, of women. \label{fig:EstMulheres}}
+\end{minipage} \hfill
+\end{figure}
+
+
+
+\vspace*{1.4cm}
+
+\subsubsection*{Normality test}
+
+There are several methods for checking normality of a sample, by example: Shapiro-Wilk test, Cramer-von Mises criterion, Kolmogorov-Smirnov test and Normal probability plot.  The hypothesis of normality can be described as: ${\bf{H}}_{0}$: {\small The sample comes from a Normal population} \textit{versus} ${\bf{H}}_{1}$: {\small The sample is not from a Normal population}
+
+ If  the $p\_value$ is less than the nominal significance previously adopted, then we reject the null hypothesis of normality. Specifically to variable \textit{\nomedavariavel}, the results to ``Shapiro-Wilk normality test" are: statistics $w= \Sexpr{round(wa, 4)}$  and $p\_value=\Sexpr{pvalor}$.  (The results for ``Kolmogorov-Smirnov test" are: statistics 
+$D= \Sexpr{round(kolm, 4)}$ and $p\_value=\Sexpr{pk}$). 
+
+For example, for a level of significance of 5\%, if $p\_value <= 0.05$ reject the hypothesis of normality (if $p>=0.05$ we can not reject the hypothesis of normality e conclude that the sample has a Normal distribution).\\
+Also for this variable the Normal probability plot is presented in the Figure \ref{fig:normal}. The points should form an approximate straight line, departures from this straight line indicate departures from normality.
+
+{{ \setkeys{Gin}{width=.5\textwidth}
+\begin{figure}[H]
+\centering
+<<label=normal, eps=TRUE, echo=F, fig=T, include=T, width=5, height=4>>=
+par(mai=c(.5, .5, .2, .2))
+
+qqnorm(W)
+#colocando uma linha auxiliar
+qqline(W, col="red")
+
+@
+\caption{Normal probability plot of \textit{\nomedavariavel}. \label{fig:normal}}
+\end{figure}
+}}
+
+
+\end{document}
+

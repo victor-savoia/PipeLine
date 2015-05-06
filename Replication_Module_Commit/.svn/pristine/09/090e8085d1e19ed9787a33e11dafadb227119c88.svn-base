@@ -1,0 +1,12 @@
+package plink;
+
+public class PlinkException extends Exception{
+		
+	private static final long serialVersionUID = 5968410894231129716L;
+
+	public PlinkException(String erro){
+		super(erro);
+	}
+	
+
+}

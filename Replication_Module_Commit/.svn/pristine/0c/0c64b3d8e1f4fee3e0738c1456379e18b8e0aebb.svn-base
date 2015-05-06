@@ -1,0 +1,206 @@
+package report;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.itextpdf.text.BadElementException;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Image;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.pdf.PdfWriter;
+
+import control.DatabaseControle;
+import enderecos.LinkageDisequilibriumEndereco;
+import entity.LinkageDisequilibrium;
+import exception.DatabaseDaoException;
+
+public class LinkageDisequilibriumReport extends Report {
+
+	private  List<LinkageDisequilibrium> lsLD;
+	private String enderecoSave;
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public void gerarRelatorio() throws ReportException {
+		lsLD = (List<LinkageDisequilibrium>)params.get("lsLD");
+		enderecoSave = params.get("enderecoSave").toString();
+		try{
+			List<File> lsEnderecoImagens = adquirirEnderecoImagens(enderecoSave);
+			criarRelatorio(lsEnderecoImagens);
+		}catch(Exception e){
+			throw new ReportException(e.getMessage());
+		}
+
+	}
+	
+	private void criarRelatorio(List<File> lsEnderecoImagens) throws Exception{
+		Document documento = new Document();
+		
+		try {
+			PdfWriter.getInstance(documento, new FileOutputStream(ReportFiles.LINKAGE.getPdf()));
+		} catch (FileNotFoundException e) {
+			throw new Exception("Error. Directory not found:\n" + enderecoSave + "\n" + e.getMessage());
+		} catch (DocumentException e) {
+			throw new Exception("Error. Not possible create report.\n" + e.getMessage());
+		}
+		
+		documento.open();
+		
+		for (LinkageDisequilibrium ld : lsLD)
+			for (File arquivo : lsEnderecoImagens) {
+				if (arquivo.toString().contains(ld.getSnpCorrente().getSnp())) {
+					documento = incluirCabecalho(ld, documento, arquivo);
+					documento = incluirImagem(ld, documento, arquivo);
+					documento.newPage();
+				}
+			}
+		documento.close();
+	}
+
+	private Document incluirCabecalho(LinkageDisequilibrium ld, Document documento, File arquivo) throws Exception {
+
+		if(arquivo.getName().toString().toUpperCase().contains("HAPLO"))
+			documento = escreverCabecalhoHaplo(ld, documento, arquivo, new File(obterPedDatabase()));
+		else if(arquivo.getName().toString().toUpperCase().contains("CEU"))
+			documento = escreverCabecalhoCeu(ld, documento, arquivo, LinkageDisequilibriumEndereco.PEDIGREE_CEU.getFile());
+		else if(arquivo.getName().toString().toUpperCase().contains("YRI"))
+			documento = escreverCabecalhoYri(ld, documento, arquivo, LinkageDisequilibriumEndereco.PEDIGREE_YRI.getFile());
+
+		return documento;
+	}
+	
+	private String obterPedDatabase() throws DatabaseDaoException {
+		DatabaseControle dbCtrl = new DatabaseControle();
+		String[] database = dbCtrl.obterDatabase();
+		return database[1];
+	}
+
+	private Document escreverCabecalhoYri(LinkageDisequilibrium ld, Document documento, File arquivo, File nomePed) throws Exception {
+		System.out.println("____________");
+		System.out.println("YRI");
+		System.out.println(ld.getSnpCorrente());
+		System.out.println(ld.getSnpUtilizado());
+		System.out.println(ld.isCorrenteUtilizadoHapMapYri());
+		if(ld.isCorrenteUtilizadoHapMapYri())
+			return inserirCabecalhoSnpCorrente(ld, documento, arquivo,nomePed);
+		else
+			return inserirCabecalhoSnpUtilizado(ld, documento, arquivo,nomePed);
+	}
+
+	private Document escreverCabecalhoCeu(LinkageDisequilibrium ld, Document documento, File arquivo, File nomePed) throws Exception{
+		System.out.println("____________");
+		System.out.println("CEU");
+		System.out.println(ld.getSnpCorrente());
+		System.out.println(ld.getSnpUtilizado());
+		System.out.println(ld.isCorrenteUtilizadoHapMapCeu());
+		if(ld.isCorrenteUtilizadoHapMapCeu())
+			return inserirCabecalhoSnpCorrente(ld, documento, arquivo,nomePed);
+		else
+			return inserirCabecalhoSnpUtilizado(ld, documento, arquivo,nomePed);
+	}
+
+	private Document escreverCabecalhoHaplo(LinkageDisequilibrium ld, Document documento, File arquivo, File nomePed) throws Exception {
+		System.out.println("____________");
+		System.out.println("HAPLO");
+		System.out.println(ld.getSnpCorrente());
+		System.out.println(ld.getSnpUtilizado());
+		System.out.println(ld.isCorrenteUtilizadoHaplo());
+		if(ld.isCorrenteUtilizadoHaplo())
+			return inserirCabecalhoSnpCorrente(ld, documento, arquivo, nomePed);
+		else
+			return inserirCabecalhoSnpUtilizado(ld, documento, arquivo, nomePed);
+	}
+
+	private Document inserirCabecalhoSnpCorrente(LinkageDisequilibrium ld, Document documento, File arquivo, File nomePed) throws Exception {
+		try {
+			documento.add(new Paragraph("Chromossome: " + ld.getSnpCorrente().getChr() +
+					"; SNP: " + ld.getSnpCorrente().getSnp() + "; Position: " + ld.getSnpCorrente().getPosicao() ) );
+			documento.add(new Paragraph("LD generated from " + nomePed.getName()));
+		} catch (DocumentException e) {
+			throw new Exception("Error while including a new line in the report.\n" + e.getMessage());
+		}
+		return documento;
+	}
+
+	private Document inserirCabecalhoSnpUtilizado(LinkageDisequilibrium ld, Document documento, File arquivo, File nomePed) throws Exception {
+		try {
+			documento.add(new Paragraph("Chromossome: " + ld.getSnpCorrente().getChr() +
+					"; SNP: " + ld.getSnpCorrente().getSnp() + "; Position: " + ld.getSnpCorrente().getPosicao() ) );
+			documento.add(new Paragraph("The " + ld.getSnpCorrente() + "'s closest snp (from Hapmap): " + ld.getSnpUtilizado()));
+			documento.add(new Paragraph("LD generated from " + nomePed.getName()));
+		} catch (DocumentException e) {
+			throw new Exception("Error while including a new line in the report.\n" + e.getMessage());
+		}
+		return documento;
+	}
+
+	private Document incluirImagem(LinkageDisequilibrium ld, Document documento, File arquivo) throws Exception{
+		Image figura;
+		try {
+			figura = Image.getInstance(arquivo.toString());
+			float escalaImagem = ((documento.getPageSize().getWidth() - documento.leftMargin()
+					- documento.rightMargin() - 0) / figura.getWidth()) * 100;
+			figura.scalePercent(escalaImagem);
+			documento.add(figura);
+
+			documento.newPage();
+			return documento;
+		} catch (BadElementException e) {
+			throw new Exception("Error. Bad element image.\n" + e.getMessage());
+		} catch (MalformedURLException e) {
+			throw new Exception("Error. Incorret URL.\n" + e.getMessage());
+		} catch (IOException e) {
+			throw new Exception("Error in input or output data in report.\n" + e.getMessage());
+		} catch (DocumentException e) {
+			throw new Exception("Error including data in report.\n" + e.getMessage());
+		}
+		
+		
+	}
+
+	/**
+	 * Adquire enderecos de diretorios de SNPs no diretorio save do LD,
+	 * solicita incluir numa lista enderecos de imagens de cada um dos diretorios arquiridos
+	 * @param enderecoSave
+	 * @return lista com todas as imagens dos SNPs
+	 */
+	private List<File> adquirirEnderecoImagens(String enderecoSave) {
+		File save = new File(enderecoSave);
+		
+		List<File> lsEnderecosImagens = new ArrayList<>();
+		
+		File[] diretorios = save.listFiles();
+		for(int i = 0; i < diretorios.length; i++){
+			if(diretorios[i].isDirectory())
+				lsEnderecosImagens = adquirirEnderecoImagensSNP(lsEnderecosImagens, diretorios[i]);
+		}
+		
+		return lsEnderecosImagens;
+	}
+
+	/**
+	 * Adquire enderecos de arquivos que possuam a extensao '.png' 
+	 * e acrescenta na lista enviada por parametro
+	 * @param lsEnderecosImagens
+	 * @param diretorio
+	 * @return lsEnderecosImagens com acrescimo de arquivos que possuam '.png' no diretorio solicitado
+	 */
+	private List<File> adquirirEnderecoImagensSNP(List<File> lsEnderecosImagens, File diretorio) {
+		File[] arquivos = diretorio.listFiles();
+		
+		for(int i = 0; i < arquivos.length; i++){
+			if(arquivos[i].toString().toLowerCase().contains(".png") && arquivos[i].isFile())
+				lsEnderecosImagens.add(arquivos[i]);
+		}
+		
+		return lsEnderecosImagens;
+	}
+
+
+}

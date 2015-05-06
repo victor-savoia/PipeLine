@@ -1,0 +1,133 @@
+package testJUnit.AA;
+
+import static org.junit.Assert.*;
+
+import java.io.File;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import tools.arquivo.Arquivo;
+import dao.AssociationAnalysisDao;
+import dao.AssociationAnalysisDaoImp;
+import entity.AssociationAnalysis;
+import exception.AssociationAnalysisDaoException;
+
+public class UC03REQNF08criaArquivosDiretorio {
+	
+	private static AssociationAnalysisDao dao = new AssociationAnalysisDaoImp();
+	private static AssociationAnalysis aA = new AssociationAnalysis();
+	private static AssociationAnalysis aAContinua = new AssociationAnalysis();
+	private static AssociationAnalysis aAException = new AssociationAnalysis();
+	
+	private static File enderecoDiretorioRA;
+	private static File enderecoNivelAnalise;
+	private static File enderecoTipoAnalise;
+	
+	/**
+	 * Classe de Teste: UC03REQNF08
+	 * Sistema: FAG
+	 * Subsistema: Association Analysis
+	 * Data de Planejamento: 14/08/2014
+	 * Planejado por: Thiago
+	 * Executado por: Thiago
+	 * Data de Execucao: 14/08/2014
+	 * Caso de Uso Relacionado: UC03
+	 * Requisitos Funcionais: REQNF08
+	 * 
+	 * Descricao: Verifica se os arquivos e diretorios foram criados
+	 * Pré-condições: Carregar variaveis de parametros
+	 * 
+	 * @author Grupo de Bioinformatica INCOR
+	 *
+	 */
+	@BeforeClass
+	public static void setUpBeforeClass() throws Exception {
+		
+		enderecoDiretorioRA = new File("./RA/");
+		enderecoNivelAnalise = new File("./RA/cutoffValue.txt");
+		enderecoTipoAnalise = new File("./PV/tipo_var.txt");
+				
+		aA.setVariavelDependente("glicemia");
+		aA.setTipoAnalise("Categorica");
+		aA.setNivelAnalise("05");
+		
+		aAContinua.setTipoAnalise("Continua");
+		aAException.setTipoAnalise("xx");
+	}
+	/**
+	 * Entrada: enderecoDiretorioRA
+	 * Saída Esperada: Será criado o diretorio RA
+	 * Descricao:Verifica se o diretorio RA foi criado
+	 * Pré-Condicao: Carregar variavelDependente,tipoAnalise e NivelAnalise
+	 * @throws AssociationAnalysisDaoException
+	 */
+	@Test
+	public void UC03REQNF08FB01criaArquivosDiretorio() throws AssociationAnalysisDaoException {
+		dao.criarArquivosDiretorios(aA.getVariavelDependente(),aA.getTipoAnalise(), aA.getNivelAnalise());
+		assertTrue(enderecoDiretorioRA.exists());
+	}
+	/**
+	 * Entrada: enderecoNivelAnalise
+	 * Saída Esperada: Será criado o arquivo cutoffValue.txt na pasta RA
+	 * Descricao:Verifica se o arquivo cutoffValue foi criado
+	 * Pré-Condicao: Carregar variavelDependente,tipoAnalise e NivelAnalise
+	 * @throws AssociationAnalysisDaoException
+	 */
+	@Test
+	public void UC03REQNF08FB02criaArquivosDiretorio() throws AssociationAnalysisDaoException {
+		dao.criarArquivosDiretorios(aA.getVariavelDependente(),aA.getTipoAnalise(), aA.getNivelAnalise());
+		assertTrue(enderecoNivelAnalise.exists());
+	}
+	
+	/**
+	 * Entrada: enderecoTipoAnalise
+	 * Saída Esperada: Será criado o arquivo tipo_var.txt na pasta PV
+	 * Descricao:Verifica se o arquivo tipo_var foi criado com o nome do tipo de analise como Categorica
+	 * Pré-Condicao: Carregar variavelDependente,tipoAnalise e NivelAnalise
+	 * @throws AssociationAnalysisDaoException
+	 */
+	
+	@Test
+	public void UC03REQNF08FB03criaArquivosDiretorio() throws AssociationAnalysisDaoException {
+		dao.criarArquivosDiretorios(aA.getVariavelDependente(),aA.getTipoAnalise(), aA.getNivelAnalise());
+		assertTrue(enderecoTipoAnalise.exists());
+	}
+	
+	/**
+	 * Entrada: enderecoTipoAnalise
+	 * Saída Esperada: Será criado o arquivo tipo_var.txt na pasta PV
+	 * Descricao:Verifica se o arquivo tipo_var foi criado com o nome do tipo de analise como Continua
+	 * Pré-Condicao: Carregar variavelDependente,tipoAnalise e Nivel Analise
+	 * @throws AssociationAnalysisDaoException
+	 */
+	
+	@Test
+	public void UC03REQNF08FB04criaArquivosDiretorio() throws AssociationAnalysisDaoException {
+		dao.criarArquivosDiretorios(aA.getVariavelDependente(),aAContinua.getTipoAnalise(), aA.getNivelAnalise());
+		assertTrue(enderecoTipoAnalise.exists());
+	}
+
+	/**
+	 * Entrada: enderecoTipoAnalise
+	 * Saída Esperada: Será apresentado um erro,pois o nome do tipo de analise esta invalido
+	 * Descricao:Verifica se o arquivo tipo_var foi criado com o nome do tipo de analise inválido
+	 * Pré-Condicao: Carregar variavelDependente,tipoAnalise e Nivel Analise
+	 * @throws AssociationAnalysisDaoException
+	 */
+	
+	@Test(expected = AssociationAnalysisDaoException.class)
+	public void UC03REQNF08FA01criaArquivosDiretorio() throws AssociationAnalysisDaoException {
+		dao.criarArquivosDiretorios(aA.getVariavelDependente(),aAException.getTipoAnalise(), aA.getNivelAnalise());
+		assertTrue(enderecoTipoAnalise.exists());
+	}
+
+	@AfterClass
+	public static void tearDownAfterClass() throws Exception {
+		Arquivo.deletarRecursivamente(new File("./PV"));
+		Arquivo.deletarRecursivamente(new File("./RA"));
+		Arquivo.deletarRecursivamente(new File("./DB"));
+	}
+
+}

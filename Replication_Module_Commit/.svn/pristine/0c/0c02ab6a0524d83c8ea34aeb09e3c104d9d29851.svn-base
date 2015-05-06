@@ -1,0 +1,46 @@
+package dao;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.List;
+
+import entity.Significativo;
+
+public interface ReplicationDao {
+	
+	/**
+	 * Realiza a leitura do arquivo cutoff
+	 * passado por parâmetro e retorna
+	 * uma lista de snps contidos no cuttoff
+	 * 
+	 * @param arquivoCutoff arquivo do cutOff
+	 * @param sep Separador do arquivo
+	 * @return List<Significativo> snps contidos no cutOff
+	 * @author Bruno Damasceno
+	 * @throws FileNotFoundException 
+	 */
+	List<Significativo> lerCutOff(File cutOff, String sep) throws Exception;
+
+	/**
+	 * Deleta a pasta save que esta na raiz.
+	 * @throws FileNotFoundException 
+	 */
+	void removePastaSave() throws FileNotFoundException;
+
+	/**
+	 * Salva a janela na pasta do snp corrente
+	 * @param janela
+	 * @throws IOException 
+	 */
+
+	void salvarJanela(List<String> janela, Significativo s) throws IOException;
+
+	/**
+	 * Metodo que elimina restos deixados na raiz.
+	 * @throws IOException
+	 */
+	void removerIndesejadosRaiz() throws IOException;
+	
+
+}

@@ -1,0 +1,28 @@
+package enderecos;
+
+import java.io.File;
+
+public enum LinkageDisequilibriumEndereco {
+
+	HAP_MAP("../LD_files/hapmap3_r2_b36_fwd.consensus.qc.poly.map"),
+	PEDIGREE_CEU("../LD_files/pedigreeCEU.ped"),
+	PEDIGREE_YRI("../LD_files/pedigreeYRI.ped");
+	
+	private String endereco;
+	
+	private LinkageDisequilibriumEndereco(String endereco) {
+		this.endereco = endereco;
+	}
+
+	public String getEndereco() {
+		return endereco;
+	}
+
+	public void setEndereco(String endereco) {
+		this.endereco = endereco;
+	}
+	
+	public File getFile(){
+		return new File (endereco);
+	}
+}

@@ -1,0 +1,602 @@
+package control;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+
+import boundary.RegionalPlotReplicationView;
+import boundary.ReplicationView;
+import plink.AssociationModelCategoricaPlinkScript;
+import plink.AssociationModelContinuaPlinkScript;
+import plink.AssociationModelPhenoGenerator;
+import plink.Plink;
+import rScript.AssociationAnalysisFamilyRScript;
+import rScript.AssociationAnalysisRScript;
+import rScript.RScript;
+import report.Report;
+import report.ReportFiles;
+import report.factories.ReportFactory;
+import tools.arquivo.Arquivo;
+import tools.janela.save.SaveView;
+import dao.AssociationAnalysisDao;
+import dao.AssociationAnalysisDaoImp;
+import entity.AssociationAnalysis;
+import entityRepository.DatabaseRepositorio;
+import exception.AssociationAnalysisDaoException;
+import exception.DatabaseDaoException;
+
+public class AssociationAnalysisControle {
+
+	private DatabaseControle controleDB = new DatabaseControle();
+
+	private AssociationAnalysis aA = new AssociationAnalysis();
+	private AssociationAnalysisDao daoAA = new AssociationAnalysisDaoImp();
+	private RScript rScript;
+	private Report report;
+
+	private ArrayList<ArrayList<String>> matrizPheno = new ArrayList<ArrayList<String>>();
+	private ArrayList<ArrayList<String>> matrizPValue;
+	
+	private ArrayList<String> lsPheno;
+	private ArrayList<String> listaOpcoes;
+	private ArrayList<String> listaCovariates;
+
+	private String enderecoSaveCov = "./save/AssociationModelFamily/Cov";
+	private String enderecoSave = "./save/AssociationModelFamily/";
+	
+	private String enderecoPValue = "./pValue.txt";
+	private String separadorPValue = "\\s+";
+	private String[] arqRout;
+	private String[] vetDatabase;
+	
+	private String enderecoPLinkLog = "./plink.log";
+	private File enderecoPLinkMap = new File("./plink.map");
+	private File enderecoPLinkPed = new File("./plink.ped");
+	private File enderecoDiretorioPV = new File("./PV/");
+	
+	private HashMap<String, Object> hash = new HashMap<>();
+	
+	private File enderecoRaiz = new File("./");
+	private File enderecoAcimaRaiz = new File("../");
+	private String nomeArquivoPValue = "pValue.txt";
+	private Double nivelCorte;
+
+	private String[] vetArqPV;
+
+	/**
+	 * Solicita ao controle do DataBase o vetor 
+	 * contendo dados da entidade DataBase
+	 * 
+	 * @return vetor com DataBase
+	 * @throws DatabaseDaoException
+	 */
+	public String[] obterDatabase() throws DatabaseDaoException{
+		vetDatabase = controleDB.obterDatabase();
+		return vetDatabase;
+	}
+	
+	
+
+	public ArrayList<String> getListaOpcoes() {
+		return listaOpcoes;
+	}
+
+
+
+	public void setListaOpcoes(ArrayList<String> listaOpcoes) {
+		this.listaOpcoes = listaOpcoes;
+	}
+
+
+
+	public ArrayList<String> getListaCovariates() {
+		return listaCovariates;
+	}
+
+
+
+	public void setListaCovariates(ArrayList<String> listaCovariates) {
+		this.listaCovariates = listaCovariates;
+	}
+
+
+
+	/**
+	 * Solicita ao controle do DataBase a lista com o cabecalho do Pheno
+	 * 
+	 * @param caminhoPheno
+	 * @return Lista com todos os itens do cabecalho do Pheno
+	 * @throws DatabaseDaoException
+	 */
+	public ArrayList<String> obterListaCabecalho(String caminhoPheno)
+			throws DatabaseDaoException {
+		return controleDB.obterListaCabecalho(caminhoPheno);
+	}
+
+	/**
+	 * Popula entidade AssociationModel
+	 * 
+	 * @param listaOpcoes
+	 * @param listaCovariates2
+	 */
+	public void setEntityAA(ArrayList<String> listaOpcoes,
+			ArrayList<String> listaCovariates2) {
+		
+		aA.setVariavelDependente(listaOpcoes.get(0));
+		aA.setTipoAnalise(listaOpcoes.get(1));
+		aA.setNivelAnalise(listaOpcoes.get(2));
+		aA.setListaCovariates(listaCovariates2);
+
+		this.listaCovariates = listaCovariates2;
+		this.listaOpcoes = listaOpcoes;
+	}
+
+	/**
+	 * Solicita preparar arquivos para utilizacao do PLink
+	 * Remove arquivos criados na raiz
+	 * @throws Exception 
+	 */
+	public void realizarAnalise() throws Exception {
+
+		try{
+			System.out.println("criarVarCovar");
+			criarVarCovar();
+
+			System.out.println("criarCoVarVirgula");
+			daoAA.criarCoVarVirgula(listaCovariates);
+
+			System.out.println("salvarVarCovar");
+			daoAA.salvarVarCovar();
+
+			System.out.println("pLink");
+			pLink();
+			
+			deletarArquivosPlink();
+			
+			System.out.println("pValueFile");
+			pValueFile();
+
+			System.out.println("criarCutoff");
+			criarCutoff();
+
+			System.out.println("checkPValue");
+			checkPValue();
+
+			System.out.println("utilizarR");
+			utilizarR();
+
+			System.out.println("salvarArquivosGerados");
+			daoAA.salvarArquivosGerados(aA.getTipoAnalise(),  aA.getListaCovariates());
+
+			System.out.println("removerDiretoriosArquivos");
+			daoAA.removerDiretoriosArquivos();
+
+			System.out.println("atualizarDatabase");
+			atualizarDatabase();
+			
+		}catch(AssociationAnalysisDaoException e){
+			
+			System.out.println("removerDiretoriosArquivos depois de erro");
+			daoAA.removerDiretoriosArquivos();
+			
+			throw new AssociationAnalysisDaoException(e.getMessage());
+		}
+	}
+
+	private void deletarArquivosPlink() throws Exception {
+		vetArqPV = adquirirArquivosMesmoNome("plink");
+		
+		if(vetArqPV!=null){
+			for(int i = 0; i < vetArqPV.length; i++){
+				if((vetArqPV[i].contains("plink")) && (vetArqPV[i].contains("linear") || vetArqPV[i].contains("logistic"))){
+					Arquivo.copiar(new File(vetArqPV[i]), enderecoAcimaRaiz);
+					Arquivo.copiar(new File(vetArqPV[i]), enderecoRaiz, nomeArquivoPValue);
+					new File(vetArqPV[i]).delete();
+				}
+			}
+		}
+		
+	}
+
+
+
+	/**
+	 * Realiza a verificacao da categoria varDependente.
+	 * Realiza a copia do arquivo na pasta PV.
+	 * Efetua a analise no tipo da variavel dependente.
+	 * 
+	 * @return boolean
+	 * @throws Exception
+	 */
+	public boolean verificarCategoriaVarDependente() throws Exception {
+		System.out.println("verificarCategoriaVarDependente");
+		daoAA.prepararArqVerificarCategoria();
+		
+		int numCat = controleDB.verificarCategoria(aA.getVariavelDependente());
+		daoAA.gravarCategoria(numCat);
+
+		if("1".equalsIgnoreCase(daoAA.lerTipoCategoria()) && "Categorica".equalsIgnoreCase(aA.getTipoAnalise()))
+			return false;
+		else if ("0".equalsIgnoreCase(daoAA.lerTipoCategoria()) && "Continua".equalsIgnoreCase(aA.getTipoAnalise()))
+			throw new IOException("Is not possible to analyze continues with a categorical variable");
+
+		return true;
+	}
+
+	/**
+	 * Atualiza a database recebendo um vetor com os caminhos de arquivos
+	 * 
+	 * @throws IOException
+	 */
+	private void atualizarDatabase() throws IOException {
+		controleDB.atualizarDatabase(daoAA.atualizarDatabase(vetDatabase));
+	}
+
+	/**
+	 * Verifica se o arquivo pValue possui somente NA
+	 * 
+	 * @return boolean
+	 * @throws Exception
+	 */
+	private boolean checkPValue() throws Exception {
+		for(int i=1; i<matrizPValue.get(3).size(); i++)
+			if (!"NA".equalsIgnoreCase(matrizPValue.get(3).get(i)))
+				return false;
+				
+		throw new Exception("All p-values equals NA. Unable to e.");
+	}
+
+	/**
+	 * Criar o arquivo Cutoff de acordo com o Nivel de corte da analise
+	 * 
+	 * @throws IOException
+	 */
+	private void criarCutoff() throws IOException {
+		nivelCorte = Math.pow(10, (-1)*(Integer.parseInt(aA.getNivelAnalise())));
+		daoAA.escreverCutoff(matrizPValue, nivelCorte);
+	}
+
+	/**
+	 * Realiza a chamada do script R de acordo com o
+	 * tipo de analise e a existencia de uma ou mais covariaveis.
+	 * Deleta o diretorio save Categoria caso este j�� exista.
+	 * Realiza a movimentacao dos arquivos da analise.
+	 * Abre o relatorio criado na analise
+	 * 
+	 * @return String
+	 * @throws Exception
+	 */
+	public void utilizarR() throws Exception {
+		String tipoAnalise = aA.getTipoAnalise();
+		boolean cov = !aA.getListaCovariates().isEmpty();
+		
+		ReportFiles reportFiles = getReportFiles(tipoAnalise, cov);
+		
+		
+		rScript = new AssociationAnalysisRScript(tipoAnalise, cov);
+
+		daoAA.copiarScriptManhattan();
+		
+		rScript.gerarAnalise();
+		
+		report = ReportFactory.getFactory(reportFiles).criarRelatorio();
+		report.addParam("reportFiles", reportFiles);
+		report.gerarRelatorio();
+		
+		daoAA.deletarDiretorioSaveCategoria(new File("./save/AssociationModel/" + aA.getTipoAnalise()));
+
+		daoAA.movimentarArquivosAnalise(tipoAnalise, aA.getListaCovariates());
+
+		report.abrirRelatorio(reportFiles.getPdf());
+	}
+
+
+	private ReportFiles getReportFiles(String tipoAnalise, boolean cov) {
+		if ("Continua".equalsIgnoreCase(tipoAnalise)){
+			if(cov) return ReportFiles.REPLICATION_CONTINUA_COV;
+			else return ReportFiles.REPLICATION_CONTINUA;
+		}else{
+			if(cov) return ReportFiles.AA_CATEGORICA_COM;
+			else return ReportFiles.AA_CATEGORICA_SEM;
+		}
+	}
+
+
+
+	/**
+	 * Recebe endereco do arquivo na variavel lsPheno.
+	 * Faz leitura e inclui em uma 
+	 * lista cada linha desse arquivo.
+	 * Recebe lista com conteudo do arquivo na variavel matrizPheno
+	 * e o individuo da coluna de organiza����o.
+	 * Criar os arquivos PED, VAR e COVAR 
+	 * 
+	 * @return boolean
+	 * @throws IOException
+	 */
+	private boolean criarVarCovar() throws IOException {
+		lsPheno = controleDB.lerArquivo(vetDatabase[6]);
+		matrizPheno = controleDB.organizarArquivo(lsPheno, vetDatabase[7]);
+
+		return daoAA.criarVarCovar(matrizPheno, vetDatabase, listaOpcoes, listaCovariates);
+	}
+
+	/**
+	 * Solicita ao DAO criar arquivos e diretorios
+	 * 
+	 * @return Retorna o arquivo criado a partir da variavel dependente,
+	 *  tipo e nivel de analise
+	 * @throws IOException
+	 */
+	public boolean prepararArquivosPLink() throws IOException{
+		System.out.println("prepararArquivosPLink");
+		
+		return daoAA.criarArquivosDiretorios(aA.getVariavelDependente(),
+				aA.getTipoAnalise(), aA.getNivelAnalise());
+	}
+
+	/**
+	 * Executa comando do PLink e 
+	 * manipula arquivos passador como argumento
+	 * 
+	 * @return boolean
+	 * @throws IOException
+	 */
+	public void pLink() throws Exception{
+		
+		AssociationModelPhenoGenerator phenogenerator = new AssociationModelPhenoGenerator();
+		Plink plink;
+		
+		hash.put("map", vetDatabase[0]);
+		hash.put("ped", vetDatabase[1]);
+		
+		phenogenerator.criarArgumentos(hash);
+		phenogenerator.executarPlink();
+		
+		enderecoDiretorioPV.mkdir();
+		Arquivo.copiar(enderecoPLinkMap, enderecoDiretorioPV);
+		Arquivo.copiar(enderecoPLinkPed, enderecoDiretorioPV);
+		Arquivo.deletarRecursivamente(new File(enderecoPLinkLog));
+
+		hash.put("listaCovar", listaCovariates);
+		
+		if(listaOpcoes.get(1).equalsIgnoreCase("categorica")){
+			plink = new AssociationModelCategoricaPlinkScript();
+			plink.criarArgumentos(hash);
+			plink.executarPlink();
+		}
+		else{
+			
+			plink = new AssociationModelContinuaPlinkScript();
+			plink.criarArgumentos(hash);
+			plink.executarPlink();
+		}
+		
+
+	}
+
+	/**
+	 * Recebe endereco do arquivo, realizando o envio do retorno como
+	 * parametro para a transformacao do arquivo em matriz.
+	 * 
+	 * @return boolean
+	 * @throws IOException
+	 */
+	public boolean pValueFile() throws IOException{
+//		Arquivo.copiar(new File(enderecoPValue), new File("./"));
+		matrizPValue = controleDB.getMatrizArquivo(controleDB.lerArquivo(enderecoPValue), separadorPValue, true);
+		return criarMatrizPValueValidado();
+	}
+	
+	/**
+	 * Criar matriz PValue validado
+	 * 
+	 * @return boolean
+	 * @throws IOException
+	 */
+	public boolean criarMatrizPValueValidado() throws IOException {
+		excluirColunas();
+		validarLinhasPValue();
+		matrizPValue = organizarMatrizPValue();
+		daoAA.criarPValueValidado(matrizPValue);
+		return true;
+	}
+
+	/**
+	 * Realiza a exclusao das colunas
+	 * 
+	 * @return boolean
+	 */
+	private boolean excluirColunas() {
+		ArrayList<String> listaAux = new ArrayList<String>();
+		listaAux.addAll(Arrays.asList((new String[] { "CHR", "SNP", "BP", "P", "TEST"})));
+		for(int j = 0; j < matrizPValue.size(); j++){
+			if(!listaAux.contains(matrizPValue.get(j).get(0))){
+				matrizPValue.remove(j);
+				j=0;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Valida as linhas do arquivo PValue
+	 * 
+	 * @return boolean
+	 */
+	private boolean validarLinhasPValue() {
+
+		int colunaTEST = 0;
+		for(int coluna = 0; coluna < matrizPValue.size(); coluna++)
+			if("TEST".equalsIgnoreCase(matrizPValue.get(coluna).get(0)))
+				colunaTEST = coluna;
+
+		for(int linha = 1; linha<matrizPValue.get(0).size(); linha++)
+			if(!"ADD".equalsIgnoreCase(matrizPValue.get(colunaTEST).get(linha))){
+				for(int coluna = 0; coluna < matrizPValue.size(); coluna++)
+					matrizPValue.get(coluna).remove(linha);
+				
+				linha--;
+			}
+
+		return true;
+	}
+
+	/**
+	 * Realiza a organizacao da matriz de acordo com o indice da coluna
+	 * 
+	 * @return ArrayList<ArrayList<String>>
+	 */
+	private ArrayList<ArrayList<String>> organizarMatrizPValue() {
+		ArrayList<ArrayList<String>> matrizAux = new ArrayList<ArrayList<String>>();
+
+		for(int coluna = 0; coluna < matrizPValue.size(); coluna++ ){
+			matrizAux.add(null);
+			if(matrizPValue.get(coluna).contains("CHR")) matrizAux.set(0, matrizPValue.get(coluna));
+			else if(matrizPValue.get(coluna).contains("SNP")) matrizAux.set(1, matrizPValue.get(coluna));
+			else if(matrizPValue.get(coluna).contains("BP")) matrizAux.set(2, matrizPValue.get(coluna));
+			else if(matrizPValue.get(coluna).contains("P")) matrizAux.set(3, matrizPValue.get(coluna));
+		}
+
+		matrizAux.remove(matrizAux.size()-1);
+
+		return matrizAux;
+	}
+
+	/**
+	 * Lista todos os aquivos que contem o nome do arquivo que realiza analise e
+	 * passa para a variavel arqRout. E realiza a exclusao do arquivo ROut.
+	 * 
+	 * @throws Exception
+	 */
+	public boolean removerArqErroAnalise(String termo) throws Exception {
+		arqRout = daoAA.adquirirArquivosMesmoNome(termo);
+
+		for(int i = 0; i<arqRout.length; i++)
+			daoAA.removerArquivos(arqRout[i]);
+		
+		if("Snp".equalsIgnoreCase(termo)) daoAA.removerDiretoriosArquivosEF();
+		else daoAA.removerDiretoriosArquivos();
+		return true;
+	}
+
+	/**
+	 * Lista todos os aquivos que contem o nome do arquivo que realiza analise
+	 * 
+	 * @param nomeArquivo
+	 * @return String[]
+	 */
+	public String[] adquirirArquivosMesmoNome(String nomeArquivo) {
+		return daoAA.adquirirArquivosMesmoNome(nomeArquivo);
+	}
+
+	/**
+	 * Realiza a analise com Estrutura familiar
+	 * 
+	 * @throws IOException
+	 */
+	public void realizarAnaliseEF() throws Exception {
+		List<String> listaPvalor;
+		
+		boolean cov = !aA.getListaCovariates().isEmpty();
+		boolean snp = listaOpcoes.get(4).equals("ComSNP");
+		
+		ReportFiles reportFile = getReportFile(cov, snp);
+		
+		report = ReportFactory.getFactory(reportFile).criarRelatorio();
+
+		rScript = new AssociationAnalysisFamilyRScript(snp, cov);
+		
+		
+		daoAA.prepararArqAAEF(aA.getVariavelDependente());
+		daoAA.criarVarCovarEF(listaOpcoes, aA.getListaCovariates());
+		
+		rScript.gerarAnalise();
+		
+		report.addParam("reportFile", reportFile);
+		report.gerarRelatorio();
+
+		if(!cov)
+			daoAA.deletarDiretorioSaveCategoria(new File(enderecoSave + listaOpcoes.get(4)));
+		else
+			daoAA.deletarDiretorioSaveCategoria(new File(enderecoSaveCov + listaOpcoes.get(4)));
+		
+		if(snp){
+			listaPvalor= daoAA.lerPValorEF();
+			criarCutoff_EF(listaPvalor);
+		}
+		
+		daoAA.movimentarArquivosAnaliseEF(listaOpcoes.get(4), listaCovariates.isEmpty());
+		report.abrirRelatorio(reportFile.getPdf());
+		
+	}
+
+
+	private ReportFiles getReportFile(boolean cov, boolean snp) {
+		if(snp){
+			if(cov){
+				return ReportFiles.AAF_COMSNP_COMCOV;			
+			}else{
+				return ReportFiles.AAF_COMSNP_SEMCOV;					
+			}
+		}else{
+			if(cov){
+				return ReportFiles.AAF_SEMSNP_COMCOV;	
+			}else{
+				return ReportFiles.AAF_SEMSNP_SEMCOV;	
+			}
+		}
+	}
+
+
+	/**
+	 * Realiza a analise replicada.
+	 * 
+	 * @param listaOpcoes2
+	 * @param listaCovariates2
+	 * @throws Exception 
+	 */
+	public void realizarAnaliseReplicada(ArrayList<String> listaOpcoes, ArrayList<String> listaCovariates) throws Exception {
+
+		System.out.println("criando VarCovar");
+		criarVarCovar();
+
+		System.out.println("criaando CoVarVirgula");
+		daoAA.criarCoVarVirgula(listaCovariates);
+
+		System.out.println("salvaando VarCovar");
+		daoAA.salvarVarCovar();
+		
+		
+		new ReplicationView(listaOpcoes, listaCovariates);
+		new RegionalPlotReplicationView();
+		
+	}
+
+	/**
+	 * Salva usuarios.
+	 * 
+	 * @param listaOpcoes2
+	 * @param listaCovariates2
+	 * @throws Exception
+	 */
+	public void saveUsuario(ArrayList<String> listaOpcoes2, ArrayList<String> listaCovariates2) throws Exception {
+		daoAA.saveUsuario(listaOpcoes2, listaCovariates2);
+	}
+	
+	private void criarCutoff_EF(List<String> listaPvalor) throws IOException {
+		nivelCorte = Math.pow(10, (-1)*(Integer.parseInt(aA.getNivelAnalise())));
+		daoAA.criarCutoff_EF(listaPvalor, nivelCorte);
+	}
+
+
+
+
+	
+}

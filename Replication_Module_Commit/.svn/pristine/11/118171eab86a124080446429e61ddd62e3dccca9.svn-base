@@ -1,0 +1,175 @@
+package boundary;
+
+import java.awt.BorderLayout;
+import java.awt.Cursor;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.border.EmptyBorder;
+
+import tools.janela.save.SaveView;
+import control.DatabaseControle;
+import control.RegionalAssociationPlotControler;
+import exception.DatabaseDaoException;
+
+public class RegionalAssociationPlotView implements ActionListener{
+
+	private JFrame frame;
+	private JPanel painelPrincipal, painelNorte, painelNorteTitulo, painelNorteArquivos, painelCentro, painelSul;
+	private JButton btnDatabase, btnGerar, btnCancelar;
+	
+	private DatabaseControle ctrlDB;
+	private String[] database;
+	private JComboBox<String> cbLDPoupulation = new JComboBox<String>(new String[]{"hg18/No LD","hg19/No LD"});
+	
+	private Cursor waitCursor = new Cursor(Cursor.WAIT_CURSOR);
+	private Cursor defaultCursor = new Cursor(Cursor.DEFAULT_CURSOR);
+	
+	public RegionalAssociationPlotView() {
+		ctrlDB = new DatabaseControle();
+
+		try {
+			database = ctrlDB.obterDatabase();
+			verificarArquivos();
+			contruirInterfaceGrafica();
+		} catch (DatabaseDaoException e) {
+			apresentarErro("Error with Database file.\n" + e.getMessage());
+			new MenuView();
+		} catch (Exception e){
+			apresentarErro(e.getMessage());
+		}
+	}
+
+	private void contruirInterfaceGrafica() {
+		contruirBotoes();
+		contruirPaineis();
+		contruirFrame();
+	}
+
+	private void contruirFrame() {
+		frame = new JFrame("Regional Association Plot");
+		frame.setSize(500, 500);
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setResizable(false);
+		frame.setLocationRelativeTo(null);
+		frame.setContentPane(painelPrincipal);
+		
+		frame.setVisible(true);
+	}
+
+	private void contruirBotoes() {
+		btnCancelar = new JButton("Cancel");
+		btnGerar = new JButton("Run");
+		btnDatabase = new JButton("Change Database");
+		
+		btnGerar.addActionListener(this);
+		btnCancelar.addActionListener(this);
+		btnDatabase.addActionListener(this);
+	}
+
+	private void contruirPaineis() {
+		contruirPainelNorte();
+		contruirPainelCentro();
+		contruirPainelSul();
+		contruirPainelPrincipal();
+	}
+
+	private void contruirPainelPrincipal() {
+		painelPrincipal = new JPanel(new BorderLayout(20, 20));
+		painelPrincipal.add(painelNorte, BorderLayout.NORTH);
+		painelPrincipal.add(painelCentro, BorderLayout.CENTER);
+		painelPrincipal.add(painelSul, BorderLayout.SOUTH);
+		
+		painelPrincipal.setBorder(new EmptyBorder(30, 30, 30, 30));
+	}
+
+	private void contruirPainelSul() {
+		painelSul = new JPanel(new GridLayout(1, 2, 100, 0));
+		painelSul.add(btnGerar);
+		painelSul.add(btnCancelar);
+	}
+
+	private void contruirPainelCentro() {
+		painelCentro = new JPanel();
+		painelCentro.add(btnDatabase);
+	}
+
+	private void contruirPainelNorte() {
+		contruirPainelNorteTitulo();
+		contruirPainelNorteArquivos();
+		contruirPainelNortePrincipal();
+	}
+
+	private void contruirPainelNortePrincipal() {
+		painelNorte = new JPanel(new BorderLayout());
+		painelNorte.add(painelNorteTitulo, BorderLayout.NORTH);
+		painelNorte.add(painelNorteArquivos, BorderLayout.SOUTH);
+	}
+
+	private void contruirPainelNorteArquivos() {
+		painelNorteArquivos = new JPanel(new GridLayout(3, 2));
+		painelNorteArquivos.add(new JLabel("pvalue:"));
+		painelNorteArquivos.add(new JLabel(database[3]));
+		painelNorteArquivos.add(new JLabel("Cutoff"));
+		painelNorteArquivos.add(new JLabel(database[4]));
+		painelNorteArquivos.add(new JLabel("LD Population"));
+		painelNorteArquivos.add(cbLDPoupulation);
+	}
+
+	private void contruirPainelNorteTitulo() {
+		painelNorteTitulo = new JPanel();
+		JLabel titulo = new JLabel("Regional Association Plot");
+		titulo.setFont(new Font("Arial", 1, 18));
+		painelNorteTitulo.add(titulo);
+	}
+
+	private void verificarArquivos() throws DatabaseDaoException {
+		if("".equals(database[3]) || "null".equals(database[4]) ||
+		   "".equals(database[4]) || "null".equals(database[3]))
+				throw new DatabaseDaoException("Cutoff and pvalue files are necessary to run the analysis.\n Please, set them at Database menu.");
+	}
+
+	private void fecharInterfaceGrafica() {
+		frame.dispose();
+		new MenuView();
+	}
+
+	private void apresentarErro(String message) {
+		JOptionPane.showMessageDialog(null, message);
+	}
+	
+	public void realizarAnalise() throws Exception{
+		RegionalAssociationPlotControler ctrl = new RegionalAssociationPlotControler();
+		ctrl.gerarAnalise(new File(database[3]), new File(database[4]), cbLDPoupulation.getSelectedItem().toString());
+		new SaveView("Regional Association Plot", new File("./save/RA/"));
+	}
+
+	@Override
+	public void actionPerformed(ActionEvent e){
+		try{
+			if(e.getSource() == btnGerar){
+				realizarAnalise();
+			frame.setCursor(waitCursor);
+			}
+			if(e.getSource() == btnCancelar)
+				fecharInterfaceGrafica();
+			if(e.getSource() == btnDatabase){
+				frame.dispose();
+				new DatabaseView();
+			}
+		} catch(Exception exception){
+			apresentarErro(exception.getMessage());
+		}
+		frame.setCursor(defaultCursor);
+	}
+
+}

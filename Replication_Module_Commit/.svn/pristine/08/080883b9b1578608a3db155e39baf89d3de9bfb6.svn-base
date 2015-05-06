@@ -1,0 +1,29 @@
+package rScript;
+
+import java.util.List;
+
+public class ReplicationRScript extends RScript {
+
+	private static final String SEPARADOR_ARGUMENTOS = ";";
+
+	@Override
+	public void criarArgumentos(List<String> lsArgs) throws Exception {
+		String aux = "--args ";
+		
+		for (int i = 0; i < lsArgs.size()-1; i++) {
+			aux += lsArgs.get(i) + SEPARADOR_ARGUMENTOS;
+		}
+		
+		aux += lsArgs.get(lsArgs.size()-1);
+		args.add(aux);
+		args.add(RScriptFiles.REPLICATION.getEndereco());
+		
+	}
+
+	@Override
+	public void gerarAnalise() throws Exception {
+		executarR();
+		validarRelatorio(RScriptFiles.REPLICATION.getScript(), RScriptFiles.REPLICATION.getROut());
+		
+	}
+}

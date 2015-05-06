@@ -1,0 +1,25 @@
+package plink;
+
+import java.util.HashMap;
+
+public class AssociationModelPhenoGenerator extends Plink{
+
+	private String enderecoVariaveisDEP = "./DB/var.txt";
+	
+	@Override
+	public void executarPlink() throws Exception {
+		chamarCMD();
+	}
+
+	@Override
+	public void criarArgumentos(HashMap<String, Object> hash) {
+		args.add("--map");
+		args.add(String.valueOf(hash.get("map")));
+		args.add("--ped");
+		args.add(String.valueOf(hash.get("ped")));
+		args.add("--recode");
+		args.add("--pheno");
+		args.add(enderecoVariaveisDEP);
+	}
+
+}

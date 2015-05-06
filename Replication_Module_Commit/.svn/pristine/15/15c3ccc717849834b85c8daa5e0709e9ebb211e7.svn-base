@@ -1,0 +1,612 @@
+\documentclass[12pt]{article}
+
+\usepackage[a4paper, width=16cm, height=23cm]{geometry}
+
+\usepackage{amssymb, amsxtra}
+\usepackage{amsthm, amsfonts, amsmath}
+\usepackage{caption}
+\usepackage{color}
+\usepackage{comment}
+\usepackage{enumerate}
+\usepackage{float}
+\usepackage[T1]{fontenc}
+\usepackage{footnote}
+\usepackage{graphicx, graphics}
+\usepackage{indentfirst}
+\usepackage[latin1]{inputenc}
+\usepackage{longtable}
+            \setlongtables
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{setspace}
+\usepackage[hang]{subfigure}
+\usepackage{Sweave}
+\usepackage[normalem]{ulem}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{lscape}
+
+%-----------------------------------
+% Escolhendo a vari?vel dependente -
+%-----------------------------------
+<<label=vardependente, echo = F, results = hide>>=
+#var_q <-read.table("./Save/Haplotipica/Var_Questao.txt", header=F, sep=",")
+#vardependente <- var_q$V1
+
+@
+%----------------------------------------------------------------------------------------%
+
+%------------------------------------ Comandos Novos ------------------------------------%
+\newcommand{\mat}[1]{\mbox{\boldmath{$#1$}}}            %
+\newcommand{\ds}[1]{\displaystyle #1}                   % Facilita a digitacao do displaystyle
+\newcommand{\R}{\texttt{R}}                             %
+                                                        %
+\newcommand{\nomedavariavel}{\Sexpr{vardependente}}     % Muda o nome da variavel
+
+\renewcommand{\baselinestretch}{1.5}                    % Espacamento entre linhas
+\setlength{\parindent}{2.0cm}                           % Onde comeca o paragrafo
+\setcounter{secnumdepth}{5}                             % 
+\setcounter{tocdepth}{5}                                %
+\sloppy                                                 %
+%----------------------------------------------------------------------------------------%
+
+%----------------------------------------------------------------------------------------%
+\renewcommand{\familydefault}{\sfdefault}
+\captionsetup{labelsep=endash, format=hang, width=\textwidth}
+%----------------------------------------------------------------------------------------%
+
+%----------------------------------------------------------------------------------------%
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+%\SweaveOpts{concordance=TRUE}
+%\section*{Results}
+
+
+<<results=tex,echo=FALSE>>=
+#nome_jan= read.table("./FM/imputados.txt") #nome da base com os arquivos
+#njan<-nrow(nome_jan)
+save.image()
+@
+
+
+
+\section*{Results}
+
+In this section we presents the results on impute data inference of the Baependi Project.  For SNPs provided by the User, first a \textit{window} of 500 kb around of each SNP is found. After in the R program is adjusted the polygenic mixed model for the response variable and covariates (including SNPs) chosen by the User.
+
+ In this specific case the phenotype in the analysis is \textit{\nomedavariavel} and \Sexpr{njan} window in the analysis.  The covariates includes in the model are presented in the following Table: 
+ 
+ \SweaveOpts{echo=false}
+<<results=tex>>=
+require(xtable)
+#covar<-read.table("./FM/coVar.txt", head=T,sep=",")
+Tab1=xtable(as.data.frame(covar), caption= "Covariates adjusted in the model.",
+label="tab:tab")
+print(Tab1, caption.placement="top")
+@
+For each \textit{window} of SNP choosen are presented the respective graph of \textit{-log10(p-value)} for all SNPs and a table including the 50 SNPs with the highest p-value. Too is presented a table indicating the directory and the name of SNP to the
+\textit{window}.
+
+
+
+
+
+<<results=tex,echo=FALSE>>=
+
+
+
+#### Estes s?o os pacotes que devem ser carregados para gerar o relat?rio
+
+require(xtable)
+require(coxme)         # Versao 2.2-3
+require(kinship2)      # Versao 1.3.7
+require(mvtnorm)
+
+
+#------------------------------------
+# Lendo a variável resposta fornecida pelo usuario -
+#------------------------------------
+
+#var_q <-read.table("./FM/Var_Questao.txt", header=F, sep=",")
+#vardependente <- var_q$V1
+
+
+#------------------------------------
+# Lendo o arquivo com os individuos -
+#------------------------------------
+
+
+
+#Indiv_chr = read.table('./FM/snps_chr.sample',head=T)   # snps_chr1.sample é o arquivo de individuos dos dados imputados
+indiv_chr = Indiv_chr[-1, -c(2,3) ]  # captura a informacao da primeira coluna (numero dos individuos)
+
+#nome_jan <- "rs123"
+#------------------------------------
+# Lendo o arquivo com o nome das janelas de cada snp -
+#------------------------------------
+
+#nome_jan= read.table("./FM/imputados.txt") #nome da base com os arquivos
+#njan<-nrow(nome_jan)
+
+for(k in listaSnps){
+  
+
+#nome_jan= read.table("./FM/imputados.txt") #nome da base com os arquivos
+#njan<-nrow(nome_jan) 
+
+janela= as.character(k)
+
+#janela <- paste("./save/FM/imput_",k, ".txt",sep="");
+janela <- paste(dir_Save_Imput,"/imput_", k, ".txt",sep="");
+
+imput_rs = read.table(janela, header =T,sep=",")
+
+names<-imput_rs[,1]
+
+##### numero de colunas de imuput_rs
+c<-ncol(imput_rs)
+
+imput_rs = imput_rs[,2:c]
+
+##### organizando o banco de tal forma que as colunas sejam os SNPs
+
+imput_rs<-t(imput_rs)
+
+#head(imput_rs)
+
+##### colocando o nome das colunas (que ficaram guardadas em names)
+colnames(imput_rs)<-names
+
+
+#-----------------------------------------
+# Lendo o arquivo de Genótipos Imputados -
+#-----------------------------------------
+
+Genotipo = cbind(IID=indiv_chr, imput_rs)  # cria um arquivo com IID + snps
+dim(imput_rs)  
+N<-ncol(imput_rs)
+
+#-------------------------------------------------
+# Ordenando o arquivo Genotipo por numero do IID - nem precisa
+#-------------------------------------------------
+#genotipo = Genotipo[order(Genotipo[ , 1], decreasing=F), ]   
+genotipo<-Genotipo
+
+
+#--------------------------------------------------------------------------------------
+# Juntando individuos nao genotipados ao arquivo genotipo preparado no passo anterior -
+# -------------------------------------------------------------------------------------
+
+#vetor = read.table("./FM/BAEPENDI_nao_genotipados.txt") # cria um vetor com o IID dos individuos nao genotipados, este sempre ser? um aruivo fixo
+vetor<-data.frame(vetor)
+nn<-nrow(vetor)
+matriz = matrix(NA, nn, N)# cria uma matriz com nn linhas (IID nao genotipados) por N colunas (snps do arquivo imput_rs)
+vetor<-vetor[,1]
+joint = cbind(as.matrix(vetor),matriz) # junta as tabelas vetor e matriz
+colnames(joint) = colnames(genotipo)  # coloca no arquivo joint o mesmo nome das colunas do arquivo genotipo
+baependi = rbind(genotipo,joint)  # junta os arquivos genotipo e joint
+#baependi[1:10, 1:5]
+#Baependi = baependi[order(baependi[ , 1], decreasing=F), ]  # ordena por IID
+
+Baependi<-baependi
+#-------------------------------
+# Lendo o arquivo de Fenotipos e pcas  -
+#-------------------------------
+
+
+nome_fen= as.character(nome_db[7,]) ## primeira linha do arquivo que corresponde a fenotipos criado pelo sistema java
+fenotipos<-read.table(nome_fen, head=T,sep=separador_feno)
+
+
+fenotipostotais <- fenotipos #os pcas ja estao inclusos no arquivo de pheno_system
+
+
+nfenot<-ncol(fenotipostotais)
+
+
+#--------------------------------------------------------------
+# Juntando todos os arquivos: Fenotipos e Genotipos -
+#--------------------------------------------------------------
+dados<-merge(fenotipostotais, Baependi, by="IID")
+Dados = dados[order(dados[ , 2], decreasing=F), ] #ordenado por individuo
+
+#------------------------------------
+# Lendo a variável resposta fornecida pelo usuario note que mesmo ja lida aqui estou lendo com o cabezalho-
+#------------------------------------
+
+#dep<-read.table("./FM/Var_Questao.txt", header=T, sep=",")
+dep<-vardependente
+
+#dep <-dep[1]
+
+#--------------------------
+# Trocar o -9 por NA   -
+#--------------------------
+
+Dados[Dados==-9] <- NA
+
+#vard<-colnames(dep)
+vard<-subset(Dados, selec=dep)
+
+#--------------------------
+# Trocar o -9 por NA   -
+#--------------------------
+
+vard[vard==-9] <- NA
+
+
+vard<-as.matrix(vard)
+
+#------------------------------------
+# Lendo as covariáveis fornecidas pelo usuario-
+#------------------------------------
+
+#covar<-read.table("./FM/coVar.txt", head=T,sep=",")
+#covar1<-colnames(covar)
+
+cov<-subset(Dados, selec=covar)
+
+
+#--------------------------
+# Trocar o -9 por NA   -
+#--------------------------
+
+cov[cov==-9] <- NA
+
+
+
+vard
+
+head(cov)
+
+for(i in 1:ncol(cov)){
+  cov[,i]<-as.numeric(cov[,i])
+}
+
+
+cov<-as.matrix(cov)
+
+ncovar<-ncol(cov)
+
+
+
+ attach(Dados, warn.conflicts=F)
+
+
+#------------------------------------
+# Calculando a Matriz de Parentesco -
+#------------------------------------
+
+###pedig = with(Dados, pedigree(id=IID, dadid=PAT, momid=MAT, sex=SEX, famid=FID, missid=0))
+kmat = makekinship(FID,IID,PAT,MAT)
+
+
+#---------------------------------------------------
+# Preparando os arquivos para o processo iterativo -
+#---------------------------------------------------
+linhas = nrow(Dados)
+colunas = ncol(Dados)
+
+
+gen = cbind(Dados[, (nfenot+1):colunas])
+col.gen = ncol(gen)
+
+#col.gen<-15########################### controlar para testes com uma amostra pequena!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+gens = colnames(gen)
+
+gens1<-gens[1:col.gen]
+
+
+
+#########################################################################################################
+#-------------------------------------------------
+# Para calcular a herdabilidade   Modelo 1- e se obter o valor de chute inicial no modelo
+#------------------------------------------------- 
+ 
+fit = lmekin(vard~1, data=Dados, random=~1|IID, varlist=list(2*kmat))
+
+# source('./FM/funcionJASON-deisy.R');  ### Funçao para se extrair os valores do ajuste do modelo.
+source(jason);
+      
+      mod = coxme.extract(fit)
+      var.erro1 = fit$sigma^2
+      var.pol1 = as.numeric(mod[[2]][1,4]) # eh fixo
+      h2g.mod1 = var.pol1/(var.erro1 + var.pol1)
+      
+ ########################################################################
+# Valores para dar um valor inicial para controlar o calculo da herdabilidade -valores do modelo Reduzido.
+#######################################################################
+
+q<-var.pol1/var.erro1
+      
+
+#
+# 
+# -Model:  log(glicemia) ~ 1 
+#Value   Std Error      z p
+#(Intercept) 4.509934 0.008705842 518.04 0
+#$Residual error= 0.2130747 
+#>   (var.erro = fit1$sigma^2)
+#[1] 0.04540081
+#>   (var.pol = as.numeric(A[[2]][1, 4]))
+#[1] 0.01988496
+#>  (h2g.mod = var.pol/(var.erro + var.pol))
+#[1] 0.3045834
+#>  
+  
+ # > 0.01988496/ 0.04540081
+#[1] 0.4379869
+# 
+
+
+Resultado <-data.frame(matrix(NA,nrow=col.gen,ncol=4,dimnames=list(c(), c('betasnp', 'se','pvalor', 'h2_g'))))
+
+for(i in 1:col.gen) {
+  
+  res <- try(lmekin(vard~ cov+ gen[ , i], data=Dados, random=~1|IID, varlist=list(2*kmat)), silent=T )
+  if (class(res)!="try-error"){  
+        
+      ajuste = lmekin(vard~ cov+ gen[ , i], data=Dados, random=~1|IID, varlist=list(2*kmat),vinit=q)
+      
+    # source('./FM/funcionJASON-deisy.R'); funçaõ que foi lida anteriormente e que é necessria para tirar os valores
+      
+      mod = coxme.extract(ajuste);
+      var.erro = ajuste$sigma^2;
+      var.pol = as.numeric(mod[[2]][1,4]);  # eh fixo
+      (h2g.mod = var.pol/(var.erro + var.pol));
+      
+      mod[[1]];
+      mod[[2]];  
+      pos<-ncovar+2  ### sempre a posição do snp independente do numero de covariaveis
+      
+      beta0 = mod[[1]][1,1];
+      beta1 = mod[[1]][pos,1];
+      se = mod[[1]][pos,2];
+      p = mod[[1]][pos,4];
+      logpv =-log10(p)
+      
+    
+    
+  
+  Resultado[i, 1] = beta1;
+  Resultado[i, 2] = se;
+  Resultado[i, 3] = p;
+  Resultado[i, 4] = h2g.mod;
+  #rownames(Resultado) = gens1;
+  
+  
+}
+
+else{
+     beta0 = c("NA");
+      beta1 = c("NA");
+      se = c("NA");
+      p = c("NA");
+      h2g.mod =c("NA");
+     }
+
+ Resultado[i, 1] = beta1;
+  Resultado[i, 2] = se;
+  Resultado[i, 3] = p;
+  Resultado[i, 4] = h2g.mod;
+  rownames(Resultado) = gens1;
+  
+
+}
+
+  
+Resultado = data.frame(Resultado);
+head(Resultado);
+Resultado
+
+#---------------------------------------------------
+# Guaradar o resultado em um diretorio -
+#---------------------------------------------------
+
+
+ord=paste(dir_Save_ImputHaplot,"/",k,"/resultados_pvalores_janela_",k,sep="")   
+write.table(Resultado, file=ord, sep=",") 
+
+
+#---------------------------------------------------
+# Guardar o resultado para ser tratado e depois escrever a tabela com os snps de maiores pvalores -
+#---------------------------------------------------
+
+write.table(Resultado, file=paste(dir_Save_ImputHaplot,"/",k,"/Rrs.txt",sep=""), col.names=TRUE, row.names=TRUE, sep=",") 
+
+Resultado<-read.table(file=paste(dir_Save_ImputHaplot,"/",k,"/Rrs.txt",sep=""), head=TRUE, sep=",")
+
+
+logpvalor<--log10(Resultado[,3])
+
+Resultado1<-cbind(Resultado,logpvalor)
+
+Ordenado = Resultado1[order(Resultado1[ , 5], decreasing=TRUE), ];
+
+
+Ordenado<-Ordenado[1:50,]  ### Salvando os 50 SNPS com os menores pvalores
+
+###################  Gráfico dos SNPs imputados e ordenação do pvalor  ################################
+
+
+snps<-seq(1:nrow(Resultado))
+
+
+
+
+file=paste(dir_Save_ImputHaplot,"/",k,"/graph_", k, ".png", sep="") 
+
+png(file=file) 
+
+plot(snps,logpvalor, col="blue",ylim=c(0,8.5), main="Resultados da janela dos dados Imputados")
+abline(-log10(10^-5),0, col="red")
+abline(-log10(6.2*10^-8),0, col="red")
+dev.off()
+
+cat("\\includegraphics{", file, "}\n\n", sep="")
+
+print(xtable(Ordenado,digit=8))
+}
+
+
+@
+
+
+
+
+
+
+\SweaveOpts{echo=false}
+<<results=tex>>=
+require(xtable)
+#nome_snp= read.table("./Save/Haplotipica/nome do snp.txt")
+nome_snp= as.data.frame(listaSnps)
+Tab1=xtable(nome_snp, caption= "SNPs included in the analysis.",
+label="tab:ta")
+print(Tab1, caption.placement="top")
+@
+
+
+
+
+
+<<results=tex,echo=FALSE>>=
+
+require(xtable)
+
+
+#nome_snp= read.csv("./Save/Haplotipica/nome do snp.txt",h=F) 
+#njan<-nrow(nome_snp)
+
+
+for(k in listaSnps){
+
+  #nome_snp= read.csv("./Save/Haplotipica/nome do snp.txt",h=F) 
+#njan<-nrow(nome_snp)
+janela= as.character(k) 
+#janela= (nome_snp[k,]) 
+#janela<-colnames(nome_snp)
+
+v<-c("/haplotipos.map")
+
+ord=paste(dir_Save_Haplo,"/",janela,sep="")   
+ord=paste(ord,v,sep="")
+
+
+map<-read.table(ord, h=F)      
+  
+
+
+map<-cbind(map[1:2],map[,4])
+cromo<-map[1,1]
+
+nsnps<-nrow(map)
+
+
+janela= as.character(k) 
+
+
+v1<-c("/haplotiposIDC-")
+
+ord=paste(dir_Save_Haplo,"/",janela,sep="")    
+ord=paste(ord,v1,sep="")
+ord=paste(ord,janela,sep="")
+
+qscore<-read.table(ord, h=TRUE)      
+
+score<-qscore$Q.score
+score<-as.numeric(score)
+
+###### incluindo o pvalor 
+
+pvalor<-qscore$MinusLog10Pvalue
+pvalor<-as.numeric(pvalor)
+
+
+
+
+sequencia<-seq(1:nsnps)
+
+dados<-cbind(sequencia,map,score,pvalor)
+
+names1<-c("n","chr","snp","position","score","pvalor")
+          
+names(dados)<-names1
+
+
+Ordenado<-dados[order(dados[,5],decreasing=TRUE),]
+
+maioresscores<-Ordenado[1:50,]
+rownames(maioresscores)<-NULL
+
+maximoQ<-max(dados$score)
+
+
+pos<-subset(dados, score==maximoQ)
+
+fila<-pos[1,1]
+snpcentro<-pos[1,3]
+
+
+li<-fila-3
+ls<-fila+3
+
+janela7<-dados[li:ls,]
+
+janelares<-janela7[,2:5]
+
+
+
+file=paste(dir_Save_ImputHaplot,"/",k,"/graph_", k, ".png", sep="") 
+
+png(file=file)
+ 
+plot(dados[,4],dados[,5],col="red", ylab="Q-score of HapMiner program",xlab="Position of SNPs")
+dev.off()
+
+cat("\\includegraphics{", file, "}\n\n", sep="")
+
+
+print(xtable(janelares))
+print(xtable(maioresscores,digits=7,caption= "Scores.",
+label="tab:scores"))
+
+
+
+#### Três abordagens de frequências correspondentes ao gráficos de LD para os 7 snps selecionados.
+
+
+sp<-c("HaplotipicaLD_ped_SPINE.txt")
+#ord=paste("./Save/Haplotipica/Blocos_",janela,sep="") 
+ord=paste(dir_Save_Haplo,"/",janela,sep="")   
+ord=paste(ord,sp,sep="/")
+spine<-read.table(ord, sep="\n", h=F) 
+#gab<-c(".GABRIEL.txt")          ###  tirei esta análise por motivo que em alguns casos o programa não faz #esta análise
+#ord=paste("./Save/Haplotipica/Blocos_",janela,sep="")   
+#ord=paste(ord,gab,sep="")
+#gabriel<-read.table(ord, sep="\n", h=F) 
+
+gam<-c("HaplotipicaLD_ped_SPINE.txt")
+#ord=paste("./Save/Haplotipica/Blocos_",janela,sep="")   
+ord=paste(dir_Save_Haplo,"/",janela,sep="")   
+ord=paste(ord,gam,sep="/")
+gam4<-read.table(ord, sep="\n", h=F) 
+
+#print(xtable(spine), include.rownames = F, include.colnames = F, main=" Haplotype frequency SPINEBLOCKS")
+#print(xtable(gabriel), include.rownames = F, include.colnames = F,main=" Haplotype frequency GABRIEL")
+#print(xtable(gam4), include.rownames = F, include.colnames = F,main=" Haplotype frequency 4GAM")
+
+
+}
+
+
+@
+
+
+\end{document}
+
+
+ 
+

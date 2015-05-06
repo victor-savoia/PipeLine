@@ -1,0 +1,164 @@
+\documentclass[12pt]{article}
+
+\usepackage[a4paper, width=16cm, height=23cm]{geometry}
+
+\usepackage{amssymb, amsxtra}
+\usepackage{amsthm, amsfonts, amsmath}
+\usepackage{caption}
+\usepackage{color}
+\usepackage{comment}
+\usepackage{enumerate}
+\usepackage{float}
+\usepackage[T1]{fontenc}
+\usepackage{footnote}
+\usepackage{graphicx, graphics}
+\usepackage{indentfirst}
+\usepackage[latin1]{inputenc}
+\usepackage{longtable}
+            \setlongtables
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{setspace}
+\usepackage[hang]{subfigure}
+\usepackage{Sweave}
+\usepackage[normalem]{ulem}
+\usepackage{url}
+\usepackage{verbatim}
+
+\suppressfloats
+
+%-----------------------------------
+% Escolhendo a variavel dependente -
+%-----------------------------------
+%----------------------------------------------------------------------------------------%
+
+
+%------------------------------------ Comandos Novos ------------------------------------%
+\newcommand{\mat}[1]{\mbox{\boldmath{$#1$}}}            %
+\newcommand{\ds}[1]{\displaystyle #1}                   % Facilita a digitacao do displaystyle
+\newcommand{\R}{\texttt{R}}                             %
+                                                        %
+\newcommand{\nomedavariavel}{COLETADO}     % Muda o nome da variavel
+                                                        %
+\renewcommand{\baselinestretch}{1.5}                    % Espacamento entre linhas
+\setlength{\parindent}{2.0cm}                           % Onde comeca o paragrafo
+\setcounter{secnumdepth}{5}                             % 
+\setcounter{tocdepth}{5}                                %
+\sloppy                                                 %
+%----------------------------------------------------------------------------------------%
+
+
+%----------------------------------------------------------------------------------------%
+\renewcommand{\familydefault}{\sfdefault}
+\captionsetup{labelsep=endash, format=hang, width=\textwidth}
+%----------------------------------------------------------------------------------------%
+
+
+%----------------------------------------------------------------------------------------%
+
+
+
+\begin{document}
+
+
+
+
+
+\section*{Results}
+
+This report presents the descriptive statistics to evaluate the average behavior and variability of information contained in the phenotype under analysis.
+
+\subsection*{Descriptive Statistics}
+
+%The objective of this report is to present some statistics .
+
+The phenotype involved in this study is \textit{\nomedavariavel}\, of people who participated in the Project. The total number of subjects of this phenotype is 2318, and for this specific variable the number of values \textit{missing} is 625. Since it is a categorical variable, a summary table is presented together with the pie chart and pie rectangular chart that allows stratifying the variable according to gender.
+
+Firstly, the Table~\ref{tab:T} presents the summary statistics of the phenotype \textit{\nomedavariavel}\ by the categories with their respective marginal percentages. 
+\begin{table}[H]
+\begin{center}
+ \renewcommand{\arraystretch}{1.3}                				% Espacamento dentro da tabela
+ \setlength{\tabcolsep}{15pt}                      				% Define a largura da tabela
+ \setlength{\arrayrulewidth}{1\arrayrulewidth}  				    % Espessura da linha da tabela
+\caption{Categories of the variable  \textit{\nomedavariavel}. \label{tab:T}} 
+\begin{tabular}{lrr} \\ \hline
+Variable        &     Cat1 $(0)$                  & Cat2 $(1)$                      \\ \hline
+\nomedavariavel & 6  & 1687  \\
+Percentage (\%) & 0.35  & 99.65  \\ \hline
+\end{tabular}  
+\end{center}
+\end{table}
+
+The distribution of percentages can be seen in the Figure~\ref{fig:circular}, that corresponds to the circular chart. As noted, this graph facilitates the visualization of results when are analyzed in percentages.
+{{\setkeys{Gin}{width=0.4\textwidth}
+\begin{figure}[H]
+\centering
+\includegraphics{DescriptiveAnalysisCategorica-fcsetoresa}
+\caption{Pie Chart of \textit{\nomedavariavel}. \label{fig:circular}}
+\end{figure}
+}}
+
+Finally, the Figure~\ref{fig:rect} shows the rectangular pie chart which allows you to view the percentage of variable \textit{\nomedavariavel}, in this case stratified by sex. 
+
+{{ \setkeys{Gin}{width=.7\textwidth}
+\begin{figure}[H]
+\centering
+\includegraphics{DescriptiveAnalysisCategorica-fcR}
+\caption{Rectangular Chart of \textit{\nomedavariavel}\, stratified by gender. \label{fig:rect}}
+\end{figure}
+}}
+The marginal percentages by category and gender are specified in the Tables~\ref{tab:T1}, \ref{tab:T2} and \ref{tab:T3}.
+The corresponding values of porcentages of all individuals stratified by sex are displayed in the Table ~\ref{tab:T1}.  Note for example that from 2318 individuals the number of men belonging to category 1 is 0.12\%.
+
+\begin{table}[H]
+\caption{Percentages in relation to the total. \label{tab:T1}}
+\centering
+\suppressfloats
+\renewcommand{\arraystretch}{1.5}                 			% Espacamento dentro da tabela
+\setlength{\tabcolsep}{25pt}                      			% Define a largura da tabela
+\setlength{\arrayrulewidth}{.7\arrayrulewidth}   			% Espessura da linha da tabela
+\begin{tabular}{lrrr}  \hline
+\multirow{2}{*}{\vphantom{\Large Ap} SEX} & \multicolumn{3}{c}{COLETADO}        \\ \cline{2-4}
+                     & cat 1                       & & cat 2                    \\ \hline
+Men                  & 0.12  & & 56.35  \\
+Women                & 0.24  & & 43.3 \\ \hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:T2} shows the porcentage in relation to the total colum (by category). For example, in category 1, 33.33\% are men and 66.67\% are women.
+
+\begin{table}[H]
+\caption{Percentages in relation to the category. \label{tab:T2}}
+\centering
+\renewcommand{\arraystretch}{1.5}                 			% Espacamento dentro da tabela
+\setlength{\tabcolsep}{25pt}                      			% Define a largura da tabela
+\setlength{\arrayrulewidth}{.7\arrayrulewidth}   			% Espessura da linha da tabela
+\begin{tabular}{llrr} \hline
+\multirow{2}{*}{\vphantom{\Large Ap} SEX} & \multicolumn{3}{c}{COLETADO} \\ \cline{2-4}
+                      &          cat 1               & &          cat 2                \\ \hline
+   Men                & 33.33 & & 56.55    \\
+   Women              & 66.67 & & 43.45    \\ \hline         
+\end{tabular}
+\end{table}
+
+The Table~\ref{tab:T3} shows the porcentage in relation to the total line (by sex). In this table we can see that 0.21\% of the men are in the category 1 and 99.79\% of the men are in the category 2. 
+
+\begin{table}[H]
+\caption{Percentages in relation to gender. \label{tab:T3}}
+\centering
+\suppressfloats
+\renewcommand{\arraystretch}{1.5}                 			% Espacamento dentro da tabela
+\setlength{\tabcolsep}{20pt}                      			% Define a largura da tabela
+\setlength{\arrayrulewidth}{1.7\arrayrulewidth}   			% Espessura da linha da tabela
+\begin{tabular}{llll}  \hline 
+\multirow{2}{*}{\vphantom{\Large Ap} SEX} & \multicolumn{3}{c}{COLETADO} \\ \cline{2-4}
+                       &         cat 1             & &         cat 2                 \\ \hline
+Men                    & 0.21 & & 99.79 \\
+Women                  & 0.54 & & 99.46      \\ \hline
+\end{tabular}
+\end{table}
+
+
+
+\end{document}

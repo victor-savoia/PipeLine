@@ -1,0 +1,242 @@
+package dao;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+import tools.arquivo.Arquivo;
+import tools.janela.save.SaveView;
+import exception.DescriptiveAnalysisDaoException;
+
+public class DescriptiveAnalysisDaoImp implements DescriptiveAnalysisDao{
+
+	private File varRespostaFile =  new File("./system_Files/DescriptiveAnalysis.txt");
+
+	private String separador = ",";
+	
+	private File diretorioRaiz = new File("./");
+
+	@Override
+	/**
+	 * Persistir variaveis escolhidas pelo usuario
+	 * 
+	 * @param individuo
+	 * @param sexo
+	 * @param varResposta
+	 * @return boolean
+	 * @throws DescriptiveAnalysisDaoException
+	 */
+	public boolean gravarVarResposta(String individuo, String sexo, String varResposta) 
+			throws DescriptiveAnalysisDaoException {
+
+		FileWriter fw;
+		try {
+			fw = new FileWriter(varRespostaFile);
+			BufferedWriter bw = new BufferedWriter(fw);
+
+			bw.write(individuo + separador + sexo + separador + varResposta);
+
+			bw.close();
+			fw.close();
+			
+			return true;
+		} catch (Exception e) {
+			throw new DescriptiveAnalysisDaoException("Was not possible to save the variables (DA)");
+		}
+	}
+	
+
+	@Override
+	/**
+	 * Recebe endereco de arquivo que sera excluido e deleta
+	 * 
+	 * @param endereco
+	 * @return boolean
+	 * @throws DescriptiveAnalysisDaoException
+	 */
+	public boolean removerArquivos(String endereco) throws DescriptiveAnalysisDaoException{
+
+		File file = new File(endereco);
+
+		if(file.exists()){
+			if(! file.delete() )
+				throw new DescriptiveAnalysisDaoException("Was not possible to remove file " + file.getName());
+
+		}
+			
+			return true;
+	}
+
+	@Override
+	/**
+	 * Recebe endereco de onde se localiza o diretorio de armazenamento de
+	 * arquivos para realizar a analise
+	 * 
+	 * @param endereco
+	 * @param boolean
+	 * @throws DescriptiveAnalysisDaoException
+	 */
+	public boolean criarDiretorios(String endereco) throws DescriptiveAnalysisDaoException{
+
+		File save = new File(endereco);
+
+		try{
+			if (!save.exists()) {
+				save.mkdirs();
+
+				File[] files = save.listFiles();
+				for (File file : files) {
+					file.delete();
+				}
+
+			} else {
+				File[] files = save.listFiles();
+				for (File file : files) {
+					file.delete();
+				}
+			}
+			
+			return true;
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw new DescriptiveAnalysisDaoException("Was not possible to create directory " + save.getName());
+		}
+	}
+
+	@Override
+	/**
+	 * Recebe endereco de arquivo e realiza leitura armazenando cada linha num
+	 * elemento de uma lista
+	 * 
+	 * @param routFile
+	 * @return Lista com conteudo do .Rout
+	 * @throws DescriptiveAnalysisDaoException
+	 */
+	public List<String> lerArquivoRout(String routFile) throws DescriptiveAnalysisDaoException {
+		List<String> listaConteudo = new ArrayList<String>();
+
+		String caminho = "";
+		File rout;
+		FileReader fr;
+		BufferedReader br;
+
+		try{
+			caminho = new File(".").getCanonicalPath();
+			rout = new File(caminho + (routFile));
+			fr = new FileReader(rout);
+			br = new BufferedReader(fr);
+
+			while(br.ready()){
+
+				listaConteudo.add(br.readLine());
+			}
+			br.close();
+			
+		}catch (Exception e) {
+			e.printStackTrace();
+			throw new DescriptiveAnalysisDaoException("Was not possible to read the contents Rout.");
+		}
+
+		return listaConteudo;
+	}
+	
+	@Override
+	/**
+	 * Realiza verificação de existencia de arquivo de origem e o envia para um
+	 * destino (enviado por parametro)
+	 * 
+	 * @param listaEnderecos
+	 * @param destino
+	 */
+	public void moverArquivos(String[] listaEnderecos, String destino){
+
+		File fileDestino = new File(destino);
+
+		if(!fileDestino.exists()){
+			fileDestino.mkdirs();
+		}
+
+		for(String endereco : listaEnderecos){
+
+			File fileOrigem = new File(endereco);
+			File arquivoMovido = new File(fileDestino.getAbsoluteFile()+"/"+fileOrigem.getName());
+
+			if(fileOrigem.exists()){
+				fileOrigem.renameTo(arquivoMovido);
+			}
+		}
+	}
+
+	@Override
+	/**
+	 * Lista todos os aquivos que contem o nome do arquivo que realiza analise
+	 * 
+	 * @param nomeAnalise
+	 *            Nome da analise realizada
+	 * @return 
+	 * Vetor com nome dos arquivos que contem o nome da analise
+	 */
+	public String[] adquirirArquivosMesmoNome(String nomeArquivo){
+
+		File[] files = diretorioRaiz.listFiles();
+		
+		ArrayList<String> listaArquivosAnalise = new ArrayList<String>();
+		
+		for(int i = 0; i < files.length; i++){
+			if(files[i].getName().toLowerCase().contains(nomeArquivo.toLowerCase())){
+				listaArquivosAnalise.add(files[i].getName());
+			}
+		}
+		
+		String[] fileArq = new String[listaArquivosAnalise.size()];
+				
+		for(int i = 0; i <listaArquivosAnalise.size(); i++)
+			fileArq[i] = listaArquivosAnalise.get(i);
+		return fileArq;
+	}
+
+
+	@Override
+	/**
+	 * Realiza a movimentacao de arquivos recebendo o nome da categoria como argumento
+	 * 
+	 * @param categoria
+	 */
+	public void movimentarArquivosAnalise(String categoria) throws Exception{
+
+		String [] listaEnderecos = adquirirArquivosMesmoNome(categoria);
+
+		String destino = "./save/DA/" + categoria + "/SemPCA";
+		moverArquivos(listaEnderecos, destino);
+		
+	}
+
+
+	@Override
+	/**
+	 * Deleta o arquivo, caso seja uma pasta sera deletado todos os arquivos
+	 * dentro e depois a pasta.
+	 * 
+	 * @param local
+	 *            O local do arquivo ou pasta que sera deletado.
+	 * @throws FileNotFoundException
+	 */
+	public void deletarDiretorioSaveCategoria(File local) throws DescriptiveAnalysisDaoException{
+		try {
+			Arquivo.deletarRecursivamente(local);
+		} catch (FileNotFoundException e) {
+			throw new DescriptiveAnalysisDaoException("Error deleting old files");
+		}
+	}
+
+
+	@Override
+	public void saveUsuario() throws Exception {
+		new SaveView("Descriptive_Analysis", new File("./save/DA/"));
+	}
+}

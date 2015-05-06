@@ -1,0 +1,30 @@
+package dao;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import entity.Significativo;
+import exception.DatabaseDaoException;
+
+public interface DataBaseReplicationDao {
+
+	/**
+	 * Salva a database no diretorio padrao
+	 * @param vetDataBase
+	 * @throws IOException 
+	 */
+	void salvarDataBase(String[] vetDataBase) throws IOException;
+	
+	/**
+	 * realiza a leitura do database
+	 * @return retorna o vetor com os enderecos
+	 * @throws Exception 
+	 */
+	String[] obterDataBase() throws DatabaseDaoException, Exception;
+	
+
+	void moverArquivosMapPed(List<Significativo> todosSnps, String nomeMapPEd)
+			throws Exception;
+		
+}

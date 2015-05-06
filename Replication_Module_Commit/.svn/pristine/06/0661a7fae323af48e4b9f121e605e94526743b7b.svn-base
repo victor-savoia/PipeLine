@@ -1,0 +1,238 @@
+\documentclass[12pt]{article}
+
+\usepackage[a4paper, width=16cm, height=23cm]{geometry}
+\usepackage{amssymb, amsxtra}
+\usepackage{amsthm, amsfonts, amsmath}
+%\usepackage[brazil]{babel}
+\usepackage{caption}
+\usepackage{color}
+\usepackage{comment}
+\usepackage{enumerate}
+\usepackage[T1]{fontenc}
+\usepackage{footnote}
+\usepackage{graphicx, graphics}
+%\usepackage{here}
+%\usepackage{indentfirst}
+\usepackage[latin1]{inputenc}
+\usepackage{longtable}
+            \setlongtables
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{setspace}
+\usepackage[hang]{subfigure}
+\usepackage[normalem]{ulem}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{Sweave}
+
+
+
+
+
+<<label=vardependente, echo = F, results = hide>>=
+
+var_q<-read.table("./PV/Var_Questao.txt",header = F ,sep = ",")
+var_q
+vardependente <- var_q$V1
+@
+
+
+
+
+
+%------------------------------------ Comandos Novos ------------------------------------%
+
+\newcommand{\mat}[1]{\mbox{\boldmath{$#1$}}}            %
+\newcommand{\ds}[1]{\displaystyle #1}                   % Facilita a digitação do displaystyle
+\newcommand{\R}{\texttt{R}}
+
+
+\newcommand{\nomedavariavel}{\Sexpr{vardependente}}         % Muda o nome da vari?vel
+
+
+\renewcommand{\baselinestretch}{1.5}                    % Espaçamento entre linhas
+\setlength{\parindent}{2.0cm}                           % Onde começa o parágrafo
+\setcounter{secnumdepth}{5}                             % \setcounter{tocdepth}{5}
+\sloppy                                                 %
+
+%----------------------------------------------------------------------------------------%
+
+\renewcommand{\familydefault}{\sfdefault}
+\captionsetup{labelsep=endash, format=hang, width=\textwidth}
+
+%----------------------------------------------------------------------------------------%
+
+
+
+\begin{document}
+
+
+<<label=freq, echo=F, results=hide>>=
+
+#### Pacotes necessários  
+
+require(xtable)
+
+
+#--------------------
+# Leitura dos fenótipos de Tabelas
+#--------------------
+
+
+covar= read.table('./PV/CoVar.txt', head=T, sep=',')  ### arquivo com o nome das variáveis escolhidas pelo usuario, 
+
+banco = read.table("./PV/pValue.txt", header=T, sep=',')   ## arquivo com chr, snp, bp, pvalor para o manhattan, qqplot e pontos de corte (tem NAS para o ensaio).
+
+
+
+##############################################    Manhattan  qqplot e Tabela de cutoff
+
+    ### Para o gráfico Manhattan  e o qqplot
+
+manhattan_fenot<- with(banco,data.frame(CHR,BP,P))
+
+colnames(manhattan_fenot) = c('CHR','BP','P')
+colors <- c("darkgreen","royalblue","salmon","darkorange","darkgray","red","blue","green","gold","purple","cadetblue","gray11","chocolate","slateblue","orchid","grey","firebrick","midnightblue","violet","olivedrab","maroon","seagreen","orange","black")
+
+### Chamando a funcção manhattan
+source('./PV/ManhattanFuncao.R')
+
+jpeg(filename="./PV/mht_plot.jpg",quality=100)
+manhattan (manhattan_fenot, colors=colors, pch=19, cex=0.3)
+dev.off()
+
+    ### para o qqplot
+
+jpeg(filename="./PV/qq_plot.jpg",quality=100)
+qq (manhattan_fenot$P)
+dev.off()
+
+
+    ### Para a Tabela
+
+pvalue<-banco[,4]
+pcorte<-which(pvalue<=0.00001)
+us<-banco[pcorte,]
+us1<-us[order(us[,4],decreasing=FALSE),]
+rownames(us1)<-NULL
+P<-as.factor(us1$P)
+us1$P<-P
+
+
+u<-nrow(us1)
+
+if(u>50) {
+   us1<-us1[1:50,]
+} else {
+    us1<-us1
+}
+
+
+##############################################
+@
+
+
+\section*{Report}
+
+In the following sections we describe the linear logistic regression model and present the results obtained from the application in the phenotype dichotomic \textit{\nomedavariavel}\ of individuals of project under study.
+
+
+\subsection*{Statistical inference}
+
+
+Considering a dichotomous response variable ${\bf{Y}}$ defined as ${\bf{Y}} =1$ for cases, and ${\bf{Y}} =0$ for controls and the ${\bf{X}}$ matrix, ${\bf{X}}=({\bf{X}}_{1},..., {\bf{X}}_{p})$, with 
+$p$ predictor variables, the statistical modeling for this type of variables is a multiple linear logistic model defined as:
+\begin{eqnarray}
+\label{mm}
+log\frac{\pi({\bf{X}})}{1-\pi({\bf{X}})}=\beta_{0} + \sum^{p}_{j=1} \beta_{j}{\bf{X}}_{j}+\varepsilon, 
+\end{eqnarray}
+where $\pi({\bf{X}}) = P({\bf{Y}} = 1|{\bf{X}})$;\\
+$\beta_{0}$, $\beta_{1}$,..., $\beta_{p}$ are the regression parameters;\\
+${\bf{X}}_{i}$ are the predictor variables; \\
+$\varepsilon$ is the vector for the random error;\\
+$E(\varepsilon)={\bf{0}}$ and  $var(\varepsilon)= {\bf{I}}\sigma^{2}$.\\
+
+For this specific case ${\bf{Y}}$ represents the vector of values of \textit{\nomedavariavel} from individuals of the project.  Our interest is know which SNPs are influencing this variable by adjusting the model described in \ref{mm}. Note that for a number $k$ of SNPs, it is also necessary to adjust $k$ models, ie one model for each SNP. In order to capture the effect of SNP in the variable \textit{\nomedavariavel}, some covariates were included in the model, these covariates or predictor variables, are shown in Table \ref{tab:ta}, in the last column the variable $\bf{X}$ represents each SNP adjusted in the model (one SNP in each fit).
+
+
+\SweaveOpts{echo=false}
+<<results=tex>>=
+Tab1=xtable(covar, caption= "Covariates adjusted in the model.",
+label="tab:ta")
+print(Tab1, caption.placement="top")
+@
+
+Denoting by $\beta_{snp}$ the effect of SNP on \textit{\nomedavariavel}, the hypothesis being contrasted to obtain the statistical significance of this parameter is given by:
+
+\begin{eqnarray}
+H_{0}: \beta_{snp}=0 \\
+H_{1}: \beta_{snp} \neq 0.
+\end{eqnarray}
+
+\noindent In order to test this hypothesis we used the \textit{Cochran-Armitage trend test} test statistics.
+When  $\beta_{snp}= 0$ does not have any association between genetic risk factor (SNP) and disease, ie the risk of the disease is the same regardless of the state allelic of the marker.
+
+
+\subsection*{Results}
+
+Particularly, in this specific model ${\bf{X}}_{p}$ represents the SNP as the predictor variable, it is  coded as (0, 1, 2) and $\beta_{snp}$ is the parameter indicating the association between the SNP and \textit{\nomedavariavel}. 
+
+For each  SNP one logistic regression model was adjusted and its respective p-value associated with $\beta_{snp}$ was calculated. To consider a SNP as significantly associated with the response variable the literature recommends a p-value cutoff of $5 \times 10^{-8}$ (Barsh et al., 2012).
+
+
+For all 22 chromosomes, the corresponding p-values for all SNPs are shown in the \textit{Manhattan plot} illustred in the Figure \ref{plotm}, in this plot he horizontal lines represents a cutoff of $6.2 \times 10^{-8}$ and $1 \times 10^{-5}$. Also in the  Table \ref{tab:cutof} the SNPs with p-values smaller than $1\times 10^{-5}$ are presented.
+
+
+\begin{figure}[H]
+  \centering		
+  \medskip
+ \includegraphics[scale=0.5]{mht_plot.jpg}
+\caption{\textit{Manhattan} plot of \textit{\nomedavariavel}\ \label{plotm}}
+\end{figure}
+
+
+
+\SweaveOpts{echo=false}
+
+<<results=tex>>=
+
+Tab2=xtable(us1, caption= "SNPs with a p-value cutoff of $1x10^{-5}$",
+label="tab:cutof")
+print(Tab2, caption.placement="top")
+@
+
+
+Finally, in the Figure \ref{plot} is shown the \textit{qqplot} which corresponds to the percentiles of a standard normal distribution against the corresponding percentiles of the observed p-values. If the observations follow approximately a normal
+distribution, the resulting plot should be roughly a straight line with a positive slope.
+
+
+\begin{figure}[H]
+  \centering		
+  \medskip
+ \includegraphics[scale=0.5]{qq_plot.jpg}
+\caption{ \textit{qqplot} of p-values. \label{plot}}
+\end{figure}
+
+
+
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

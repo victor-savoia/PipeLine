@@ -1,0 +1,39 @@
+package testJUnit.LD;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+
+import entity.Significativo;
+
+public class UC09EntitySignificativo {
+	
+	private static final String SIGNIFICATIVO_CUTOFF ="1 rs1234";
+	private static final String SIGNIFICATIVO_MAP_TRUE ="1 rs4321";
+	private static final String SIGNIFICATIVO_MAP_FALSE ="2 rs4321";
+
+	/**
+	 * CT01FB01IsChrIgual_Sucesso
+	 * Objetivo: verificar se a entidade Significativos esta verificando se o Chr passado é igual ao dela
+	 * Pre-Condicao: O Significativo passado deve possuir o mesmo cromossomo do Sifnificativo principal
+	 */
+	@Test
+	public void CT01IsChrIgual_Sucesso(){
+		Significativo sCutoff = new Significativo(SIGNIFICATIVO_CUTOFF);
+		Significativo sMap = new Significativo(SIGNIFICATIVO_MAP_TRUE);
+		assertTrue(sCutoff.isChrIgual(sMap));
+	}
+	
+	/**
+	 * CT01FA01IsChrIgual_False
+	 * Objetivo: verificar se a entidade ao receber um Significativo com Snp diferente retonra false
+	 * Pre-Condicao: O Significativo enviado deve ser diferente 
+	 */
+
+	@Test
+	public void CT01FA01IsChrIgual_False (){
+		Significativo sCutoff = new Significativo(SIGNIFICATIVO_CUTOFF);
+		Significativo sFalse = new Significativo(SIGNIFICATIVO_MAP_FALSE);
+		assertFalse(sCutoff.isChrIgual(sFalse));
+	}
+}

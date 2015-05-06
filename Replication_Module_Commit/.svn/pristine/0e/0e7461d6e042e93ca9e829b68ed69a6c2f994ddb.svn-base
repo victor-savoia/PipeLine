@@ -1,0 +1,13 @@
+package report.factories;
+
+import report.FMInputHaplotReport;
+import report.Report;
+
+public class FMInputHaplotReportFactory extends ReportFactory {
+
+	@Override
+	public Report criarRelatorio() {
+		return new FMInputHaplotReport();
+	}
+
+}

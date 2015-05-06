@@ -1,0 +1,522 @@
+package dao;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+
+import tools.arquivo.Arquivo;
+import tools.janela.save.SaveView;
+import entity.Significativo;
+import entityRepository.DatabaseRepositorio;
+import exception.DatabaseDaoException;
+
+public class ReplicationDaoImpl implements JanelaDao{
+
+	private static final String ENDERECO_SAVE_REPLICATION = "./save/Replication/";
+	
+	private static final String ENDERECO_SAVE = "./save";
+
+
+	
+	/**
+	 * Realiza a leitura do arquivo cutoff
+	 * passado por parâmetro e retorna
+	 * uma lista de snps contidos no cuttoff
+	 * 
+	 * @param Cutoff arquivo do cutOff
+	 * @param sep Separador do arquivo
+	 * @return List<Significativo> snps contidos no cutOff
+	 * @throws FileNotFoundException 
+	 */
+	@Override
+	public List<Significativo> lerCutOff(File cutOff, String sep)
+			throws Exception {
+		String linha[] = {};
+		Significativo snp = null;
+		Scanner scan = new Scanner(cutOff);
+		List<Significativo>  lsSnps = new ArrayList<Significativo>();
+		scan.nextLine();
+		while(scan.hasNextLine()){
+			snp = new Significativo();
+			linha = scan.nextLine().split(sep);
+			snp.setChr(Integer.parseInt(linha[0]));
+			snp.setSnp(linha[1]);
+			snp.setPosicao(Long.parseLong(linha[2]));
+			lsSnps.add(snp);
+		}
+		scan.close();
+		return lsSnps;
+	}
+
+	/**
+	 * Deleta a pasta save que esta na raiz.
+	 * @throws FileNotFoundException 
+	 */
+	@Override
+	public void removePastaSave() throws FileNotFoundException {
+		Arquivo.deletarRecursivamente(ENDERECO_SAVE);
+		
+	}
+
+	/**
+	 * salva a janela na pasta do snp corrente
+	 * @throws IOException 
+	 */
+	@Override
+	public void salvarJanela(List<String> janela, Significativo s)
+			throws IOException {
+		String save =ENDERECO_SAVE_REPLICATION.concat("EF/");
+		if(! new File(save).exists()){
+			save = ENDERECO_SAVE_REPLICATION.concat("SemEF/");
+		}
+		
+		File f = new File(save + s.getSnp()+ "/" + "CHR_"+s.getChr()+"_window_"+ s.getSnp());
+		
+		BufferedWriter bw = new BufferedWriter(new FileWriter(f));
+		
+		for(String sig : janela){
+			bw.write(sig);
+			bw.newLine();
+		}
+
+		bw.close();
+		
+	}
+
+	/**
+	 * remove arquivos indesejados da raiz
+	 */
+	@Override
+	public void removerIndesejadosRaiz() throws IOException {
+		// TODO Auto-generated method stub
+		
+	}
+
+
+	
+	public void saveFolder(boolean opcao) throws Exception{
+		if(opcao){
+			new SaveView("Replication_family", new File("./save/"));
+		}else{
+			new SaveView("Replication_unrelated", new File("./save/"));
+		}
+	}
+	
+	/**
+	 * Direcionar para qual pvalor será criado
+	 * @param tipoAnalise
+	 * @param snp
+	 * @throws Exception
+	 */
+	public void criarPvalor(String tipoAnalise, String snp) throws Exception{
+		String enderecoArquivo;
+		enderecoArquivo = "./save/Replication/SemEF/"+ snp +"/"+snp+".assoc."+tipoAnalise;
+		
+		if(tipoAnalise.equalsIgnoreCase("logistic")){
+			criarPvalorLogistic(enderecoArquivo, snp);
+		}else{
+			criarPvalorLinear(enderecoArquivo, snp);
+		}
+	}
+
+	/**
+	 * Cria a lista do PValor, a partir dos arquivos .linear gerados
+	 * @param enderecoArquivo
+	 * @throws Exception
+	 */
+	private void criarPvalorLinear(String enderecoArquivo, String snp) throws Exception {
+		DatabaseRepositorio dtbase =new DatabaseRepositorio();
+		List<String> listaLinear = new ArrayList<String>();
+		listaLinear = dtbase.listarArquivo(enderecoArquivo);
+		List<String> listaPvalor = new ArrayList<String>();
+
+		for(String s : listaLinear){
+			String[] linha = s.split("\\s+");
+			
+			String linhaPvalor = linha[1]+","+linha[2]+","+linha[3]+","+linha[7]+","+linha[8]+","+linha[9];
+			listaPvalor.add(linhaPvalor);
+		}
+		salvarPvalor(listaPvalor, snp);
+		
+	}
+
+	/**
+	 * Cria a lista do PValor, a partir dos arquivos .logistic gerados
+	 * @param enderecoArquivo
+	 * @param snp
+	 * @throws Exception
+	 */
+	private void criarPvalorLogistic(String enderecoArquivo, String snp) throws Exception {
+		DatabaseRepositorio dtbase =new DatabaseRepositorio();
+		List<String> listaLogistic = new ArrayList<String>();
+		List<String> listaPvalor = new ArrayList<String>();
+		listaLogistic = dtbase.listarArquivo(enderecoArquivo);
+		
+		for(String s : listaLogistic){
+				String[] linha = s.split("\\s+");
+				
+				String linhaPvalor = linha[1]+","+linha[2]+","+linha[3]+","+linha[7]+","+linha[9];
+				listaPvalor.add(linhaPvalor);
+		}
+		
+		salvarPvalor(listaPvalor, snp);
+	}
+	
+	/**
+	 * Salva o PValor aonde deveria para a leitura do R e na pasta do Save do Snp.
+	 * @param listaPvalor
+	 * @param snp
+	 * @throws Exception
+	 */
+	private void salvarPvalor(List<String> listaPvalor, String snp) throws Exception{
+		File f = new File(ENDERECO_SAVE_REPLICATION.concat("SemEF/").concat(snp).concat("/").concat("Pvalor_Replication_").concat(snp).concat(".txt"));
+		BufferedWriter bw = new BufferedWriter(new FileWriter(f)); 
+		
+		for(String s : listaPvalor){
+			bw.write(s);
+			bw.newLine();
+		}
+		
+		bw.close();
+		Arquivo.copiar(f, new File("./PV/"), "pValue.txt");
+	}
+
+	/**
+	 * move os arquivos map e ped gerados pelo plink para a pasta certa.
+	 * @param todosSnps
+	 * @param nomeMapPEd
+	 * @throws Exception
+	 */
+	public void moverArquivosMapPedCompleto(List<Significativo> todosSnps, String nomeMapPEd)throws Exception {
+			String enderecoRaiz = "./"+nomeMapPEd+"_";
+			
+			String save =ENDERECO_SAVE_REPLICATION.concat("EF/");
+			if(! new File(save).exists()){
+				save = ENDERECO_SAVE_REPLICATION.concat("SemEF/");
+			}
+			
+		for(Significativo s: todosSnps){
+			Arquivo.moverArquivo(enderecoRaiz+s.getSnp()+".map", save + s.getSnp()+ "/");
+			Arquivo.moverArquivo(enderecoRaiz+s.getSnp()+".ped", save + s.getSnp()+ "/");
+		}
+		
+	}
+	
+	public void moverAquivosMaoPedMenor(String snp, String nomeMap_Ped) throws Exception {
+		String enderecoRaiz = "./"+ nomeMap_Ped +"_";
+		
+		String save =ENDERECO_SAVE_REPLICATION.concat("EF/");
+		if(! new File(save).exists()){
+			save = ENDERECO_SAVE_REPLICATION.concat("SemEF/");
+		}
+		
+		Arquivo.moverArquivo(enderecoRaiz+ snp +".map", save + snp + "/");
+		Arquivo.moverArquivo(enderecoRaiz+snp  +".ped", save + snp + "/");
+		
+	}
+
+	/**
+	 * Cria o cutoff  de familia a partir do arquivo results.
+	 * @param results
+	 * @param nivelCorte
+	 * @param snp
+	 * @throws IOException 
+	 */
+	public void criarCutoff_EF_Completo(String results, double nivelCorte, String snp, String cromossomo) throws IOException {
+		String [] aux, auxA1;
+		double pvalor;
+		
+		String save = "./save/Replication/EF/".concat(snp).concat("/").concat("cutoff_").concat(snp);
+		File cutoff = new File(save);
+		BufferedWriter bw = new BufferedWriter(new FileWriter(cutoff));
+		
+		List<String> leituraCerta = lerArquivo(results);
+		
+		bw.write("SnpGwas,CHR,SNP,A1,beta,pvalor");
+		
+		String gwas = snp;
+		String chr = cromossomo;
+		
+		for(String s : leituraCerta){
+			aux =s.split(",");
+			auxA1 = aux[0].split("_");
+			String snpAnalise = auxA1[0];
+			String a1 = auxA1[1];
+			String beta = aux[2];
+			
+			pvalor = Double.parseDouble(aux[1]);
+
+			if (pvalor <= nivelCorte){
+				bw.newLine();
+				bw.write(gwas.concat(","));
+				bw.write(chr.concat(","));
+				bw.write(snpAnalise.concat(","));
+				bw.write(a1.concat(","));
+				bw.write(beta.concat(","));
+				bw.write(String.valueOf(pvalor));
+			}
+		}
+		
+		bw.close();
+		
+	}
+	
+	
+	/**
+	 * Cria o cutoff  de familia a partir do arquivo results.
+	 * @param pvalorAnalise
+	 * @param nivelCorte
+	 * @param snp
+	 * @throws IOException 
+	 */
+	public boolean criarCutoff_EF_Analise(String pvalorAnalise, double nivelCorte, String snp) throws IOException {
+		String [] aux;
+		double pvalor;
+		boolean significativo = false;
+		String save = "./save/Replication/EF/".concat(snp).concat("/").concat("cutoff_Analise_").concat(snp);
+		File cutoff = new File(save);
+		
+		BufferedWriter bw = new BufferedWriter(new FileWriter(cutoff));
+		
+		List<String> leituraCerta = lerArquivo(pvalorAnalise);
+		
+		bw.write("chr,snp,position,pvalue");
+		
+		
+		for(String s : leituraCerta){
+			aux =s.split(",");
+
+			pvalor = Double.parseDouble(aux[2]);
+
+			if (pvalor <= nivelCorte){
+				bw.newLine();
+				bw.write(s);
+				significativo = true;
+			}
+		}
+		
+		bw.close();
+		return significativo;
+	}
+	
+	/**
+	 * ler o results e o map para fazer o pvalor para a analise
+	 * @param snp
+	 * @param results
+	 * @throws Exception 
+	 */
+	public void criarPvalorAnalise_EF(String snp, String results, String chr) throws Exception{
+		String[] aux, auxA1;
+		
+		String caminhoMap = "./save/Replication/EF/".concat(snp).concat("/").concat("Baependi_release2_FINAL_COMPLETO_corrigido_").concat(snp).concat(".map");
+		String save = "./save/Replication/EF/".concat(snp).concat("/").concat("pValue_Analise_").concat(snp);
+
+		File f = new File(save);
+		
+		List<String> listaResults = lerArquivo(results);
+		
+		
+		BufferedWriter bw = new BufferedWriter(new FileWriter(f));
+		
+		bw.write("chr,snp,position,pvalue");
+
+		
+		for(String s : listaResults){
+			bw.newLine();
+			
+			aux = s.split(",");
+			String pvalor = aux[1];
+			auxA1 = aux[0].split("_");
+			String snpAnalise = auxA1[0];
+			String pos = obterPvalorMap(caminhoMap, snpAnalise);
+		
+			bw.write(chr.concat(","));
+			bw.write(snpAnalise.concat(","));
+			bw.write(pos.concat(","));
+			bw.write(pvalor);
+
+		}
+		
+		bw.close();
+	}
+	
+	@SuppressWarnings("resource")
+	private String obterPvalorMap(String caminhoMap, String snp) throws IOException {
+		String[] aux;
+		
+		File f = new File(caminhoMap);
+		BufferedReader br = new BufferedReader(new FileReader(f));
+		
+		while(br.ready()){
+		
+			aux = br.readLine().split("\t");
+			
+			if(aux[1].equalsIgnoreCase(snp)){
+				return aux[3];
+			}
+			
+		}
+		
+		br.close();
+		return null;
+	}
+
+	
+	
+	/**
+	 * Cria o cutoff  sem familia a partir do arquivo assoc.
+	 * @param results
+	 * @param nivelCorte
+	 * @param snp
+	 * @throws IOException 
+	 */
+	public void criarCutoffCompleto(String assoc, double nivelCorte, String snp, String cromossomo) throws IOException {
+		String [] aux;
+		double pvalor;
+		
+		String save = "./save/Replication/SemEF/".concat(snp).concat("/").concat("cutoff_").concat(snp);
+		File cutoff = new File(save);
+		BufferedWriter bw = new BufferedWriter(new FileWriter(cutoff));
+		
+		List<String> leituraCerta = lerArquivo(assoc);
+		
+		bw.write("SnpGwas,CHR,SNP,A1,beta,pvalor");
+		
+		String gwas = snp;
+		String chr = cromossomo;
+		
+		for(String s : leituraCerta){
+			aux =s.split("\\s+");
+			String snpAnalise = aux[1];
+			String a1 = aux[3];
+			String beta = aux[6];
+			
+			
+			pvalor = Double.parseDouble(aux[9]);
+
+			if (pvalor <= nivelCorte){
+				bw.newLine();
+				bw.write(gwas.concat(","));
+				bw.write(chr.concat(","));
+				bw.write(snpAnalise.concat(","));
+				bw.write(a1.concat(","));
+				bw.write(beta.concat(","));
+				bw.write(String.valueOf(pvalor));
+			}
+		}
+		
+		bw.close();
+		
+	}
+	
+	
+	
+	/**
+	 * Escreve o cutoff sem familia.
+	 * @param results
+	 * @param nivelCorte
+	 * @param snp
+	 * @param cromossomo
+	 * @throws IOException
+	 */
+	public boolean criarCutoff_Analise(String pvalorAnalise, double nivelCorte, String snp) throws IOException {
+		String [] aux;
+		double pvalor;
+		boolean significativo = false;
+		String save = "./save/Replication/SemEF/".concat(snp).concat("/").concat("cutoff_Analise_").concat(snp);
+		File cutoff = new File(save);
+		
+		BufferedWriter bw = new BufferedWriter(new FileWriter(cutoff));
+		
+		List<String> leituraCerta = lerArquivo(pvalorAnalise);
+		
+		bw.write("chr,snp,position,pvalue");
+		
+		
+		for(String s : leituraCerta){
+			aux =s.split(",");
+
+			pvalor = Double.parseDouble(aux[2]);
+
+			if (pvalor <= nivelCorte){
+				bw.newLine();
+				bw.write(s);
+				significativo = true;
+			}
+		}
+		
+		bw.close();
+		return significativo;
+	}
+	
+	
+	/**
+	 * le determinado arquivo e retorna uma lista com cada linha, retirando oo cabecalho
+	 * @param results
+	 * @return
+	 * @throws IOException
+	 */
+	private List<String> lerArquivo(String results) throws IOException{
+		List<String> listaRetorno = new ArrayList<String>();
+			
+		File f = new File(results);
+		BufferedReader br = new BufferedReader(new FileReader(f));
+		br.readLine(); // excluindo a primeira linha
+		while(br.ready()){
+			 listaRetorno.add(br.readLine());
+		 }
+		
+		br.close();
+		
+		return listaRetorno;
+	}
+	
+	/**
+	 * Cria o pValor para analises sem familia para rodar no association plot
+	 * @param snp
+	 * @param assoc caminho da analise de associacao, nao importa se for linear ou logistica
+	 * @param chr
+	 * @throws Exception
+	 */
+	public void criarPvalorAnalise(String snp, String assoc, String chr) throws Exception{
+		String[] aux;
+		
+		String caminhoMap = "./save/Replication/SemEF/".concat(snp).concat("/").concat("Baependi_release2_FINAL_COMPLETO_corrigido_").concat(snp).concat(".map");
+		String save = "./save/Replication/SemEF/".concat(snp).concat("/").concat("pValue_Analise_").concat(snp);
+
+		File f = new File(save);
+		
+		List<String> listaResults = lerArquivo(assoc);
+		
+		
+		BufferedWriter bw = new BufferedWriter(new FileWriter(f));
+		
+		bw.write("chr,snp,position,pvalue");
+
+		
+		for(String s : listaResults){
+			bw.newLine();
+			
+			aux = s.split("\\s+");
+			String snpAnalise = aux[2];
+			String pos = obterPvalorMap(caminhoMap, snpAnalise);
+			String pvalor = aux[9];
+			
+			bw.write(chr.concat(","));
+			bw.write(snpAnalise.concat(","));
+			bw.write(pos.concat(","));
+			bw.write(pvalor);
+
+		}
+		
+		bw.close();
+	}
+
+}

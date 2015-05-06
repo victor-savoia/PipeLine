@@ -1,0 +1,662 @@
+package dao;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+
+import tools.arquivo.Arquivo;
+import tools.janela.save.SaveView;
+
+public class FMHaplotipicaDaoImp implements FMHaplotipicaDao{
+
+	private static final String ENDERECO_PHENO_H = "./phenoH.csv";
+	private static final String SEPARADOR_PED = " ";
+	private static final String SEPARADOR_PED_PHENO = " ";
+	private static final String ENDERECO_SAVE = "./save/FM/Haplotipica";
+	private static final String ENDERECO_PLINK_TRATADO = "./haplotipos.ped";
+	private static final String[] ENDERECO_ARQ_HM_TRATADO = {"./haplotiposIDC","./haplotiposIDC-predicted"};
+	private static String ENDERECO_JANELA_SNPS = "janelaHap.txt";
+	private static final String ENDERECO_TMPHAPLOTICALD_LOG= "./tmpHaploticaLD.log";
+	private static final String ENDERECO_TMPHAPLOTICALD_PED= "./tmpHaploticaLD.ped";
+	private static final String ENDERECO_TMPHAPLOTICALD_MAP= "./tmpHaploticaLD.map";
+	private static final String ENDERECO_HAPLOTIPICALD_PEDTRATADA= "./HaplotipicaLD.ped";
+	private static final String NOME_ARQUIVO_HAPLOTIPO_PED = "/Haplotipos.ped";
+	private static final String ENDERECO_HaplotipicaChamaR = "./HaplotipicaChamaR.pdf";
+	private static final String ENDERECO_7SNPS = "./7SNPs.Rout";
+	private static final String ENDERECO_HAPLOTIPICA_CHAMAR ="./HaplotipicaChamaR.Rout";
+	private static final String ENDERECO_HAPLOTIPICACHAMAR_AUX ="./HaplotipicaChamaR.aux";
+	private static final String ENDERECO_HAPLOTIPICA_CHAMAR_LOG = "./HaplotipicaChamaR.log";
+	private static final String ENDERECO_HAPLOTIPICA_CHAMAR_TEX = "./HaplotipicaChamaR.tex";
+	private static final String ENDERECO_HAPLOTIPICA_CHAMAR_CONCORDANCE_TEX= "./HaplotipicaChamaR-concordance.tex";
+	private static final String ENDERECO_PEHONH_CSV = "./phenoH.csv";
+	private BufferedReader BR = null;
+	private BufferedWriter BW = null;
+	
+	
+	
+	@Override
+	/**
+	 * Caso exista um diretorio de Save do Haplotipica, deleta seus arquivos
+	 * @return booleano indicando sucesso
+	 * @throws IOException 
+	 */
+	public boolean limparSave() throws IOException {
+		try {
+			Arquivo.limparPasta(new File("./save/FMHaplotipica"));
+		} catch (IOException e) {
+			throw new IOException("Error clean directory of save.\n"  +e.getMessage());
+		}
+		return true;
+	}
+
+	@Override
+	/**
+	 * A partir de dois enderecos de pheno e de ped gera um arquivo filtrado  
+	 * @return endereco do arquivo gerado
+	 * @throws IOException 
+	 */
+	public File gerarArqPedPheno(String ped, String pheno, String varQuestao, String individuo) throws Exception {
+		try{
+			List<ArrayList<String>> matrizPheno = adquirirMatrizArquivo(pheno);
+			return gravarArqfiltradoPedPheno(ped, matrizPheno, varQuestao, individuo); 
+		}catch(IOException e){
+			throw new IOException("Error creating file phenoH.csv\n" + e.getMessage());
+		}
+	}
+
+	/**
+	 * Verifica os individuos do PED que estao no Pheno e cria um arquivo contendo
+	 * @param brPED
+	 * @param matrizPheno
+	 * @param sep
+	 * @return endereco de arquivo gerado com individuos do PED e dados do Pheno
+	 * @throws Exception 
+	 */
+	private File gravarArqfiltradoPedPheno(String enderecoPED, List<ArrayList<String>> matrizPheno, String varQuestao, String individuo) throws Exception {
+		List<String> linhaPED;
+		BufferedReader brPED = new BufferedReader(new FileReader(new File(enderecoPED)));
+		try{
+			BufferedWriter bw = new BufferedWriter(new FileWriter(new File(ENDERECO_PHENO_H)));
+			bw.write("FID" + SEPARADOR_PED_PHENO + individuo + SEPARADOR_PED_PHENO + varQuestao);
+			bw.newLine();
+			while(brPED.ready()){
+				linhaPED = Arrays.asList(brPED.readLine().split(SEPARADOR_PED, 3));
+				bw.write(adquirirIndviduoPedPheno(linhaPED, matrizPheno, varQuestao, individuo));
+				bw.newLine();
+			}
+			brPED.close();
+			bw.close();
+			return new File(ENDERECO_PHENO_H);
+		} catch (IOException e){
+			throw new IOException("Error in the filtering of individuals\n"+ e.getMessage());
+		}
+	}
+
+	/**
+	 * Adquire dados de Familia, Individuo e a variavel do pheno escolhida para retornar uma string contendo
+	 * Familia, Individuo e variavel escolhida
+	 * @param linhaPED
+	 * @param matrizPheno
+	 * @param varQuestao
+	 * @param individuo
+	 * @return string contendo Familia, Individuo e variavel escolhida
+	 * @throws Exception 
+	 */
+	private String adquirirIndviduoPedPheno(List<String> linhaPED, List<ArrayList<String>> matrizPheno, String varQuestao, String individuo) throws Exception {
+		
+		int colunaVarQuestao = adquirirColuna(matrizPheno,varQuestao);
+		int colunaindividuo = adquirirColuna(matrizPheno,individuo);
+
+		if( (matrizPheno.get(colunaindividuo).indexOf(linhaPED.get(1))) != -1 )
+			for(int i = 0; i < matrizPheno.get(0).size(); i++)
+				if(linhaPED.get(1).equals(matrizPheno.get(colunaindividuo).get(i))){
+					String linha = linhaPED.get(0) + SEPARADOR_PED_PHENO + linhaPED.get(1)
+							+ SEPARADOR_PED_PHENO + matrizPheno.get(colunaVarQuestao).get(i); 
+					for (int j = 0; j < matrizPheno.size(); j++)
+						matrizPheno.get(j).remove(i);
+					return linha;
+				}
+		
+		throw new IOException("Error on searching PED's individual on PHENO.");
+	}
+
+	private int adquirirColuna(List<ArrayList<String>> matrizPheno, String varQuestao) throws Exception {
+		try{
+		for(int i = 0; i < matrizPheno.size(); i++)
+			if(varQuestao.equals(matrizPheno.get(i).get(0)))
+				return i;
+		}catch (Exception e){
+			throw new Exception("the variable "+ varQuestao+ " was not found on the Pheno File");
+		}
+		return -1;
+		
+	}
+
+	/**
+	 * Solicita obter uma matriz contendo o conteudo do endereco enviado por parametro
+	 * @param endereco
+	 * @return matriz contendo o centeudo do endereco de arquivo enviado por parametro
+	 * @throws IOException
+	 */
+	private List<ArrayList<String>> adquirirMatrizArquivo(String endereco) throws IOException {
+		List<String> lsLinhas = lerArquivo(endereco);
+		List<ArrayList<String>> matrizPheno = getMatrizArq(lsLinhas, true);
+
+		return matrizPheno;
+	}
+
+	/**
+	 * Ao enviar a lista esta ser�� transformada em uma matriz.
+	 * Caso booleano seja positiva, cada elemento da lista sera uma coluna da matriz,
+	 * caso negativo, ser�� uma linha
+	 * @param lsLinhas
+	 * @param b
+	 * @return matriz contendo a lista "splitada"
+	 * @throws IOException 
+	 */
+	private List<ArrayList<String>> getMatrizArq(List<String> lsLinhas, boolean b) throws IOException {
+
+		if(!b) return getMatrizArq(lsLinhas);
+		else {
+			List<ArrayList<String>> matriz = getMatrizArq(lsLinhas);
+			List<ArrayList<String>> matrizTransposta = new ArrayList<ArrayList<String>>();
+			ArrayList<String> lsAux;
+
+			for(int i = 0; i < matriz.get(0).size(); i++){
+				lsAux = new ArrayList<>();
+				for(int j = 0; j < matriz.size(); j++){
+					lsAux.add(matriz.get(j).get(i));
+				}
+				matrizTransposta.add(lsAux);
+				lsAux = null;
+			}
+			return matrizTransposta;
+		}
+	}
+
+	/**
+	 * Transforma a lista com linhas de um arquivo em uma matriz contendo somente o conteudo sem separadores
+	 * @param lsLinhas
+	 * @return matriz com conteudo da lista "splitada"
+	 * @throws IOException 
+	 */
+	private List<ArrayList<String>> getMatrizArq(List<String> lsLinhas) throws IOException {
+		List<ArrayList<String>> matriz = new ArrayList<>();
+		String sep = obterSeparador(lsLinhas.get(0));
+		for(int i = 0; i < lsLinhas.size(); i++)
+			matriz.add(new ArrayList<>(Arrays.asList(lsLinhas.get(i).split(sep))));
+		return matriz;
+	}
+
+	/**
+	 * Obtem um dos quatro separadores pre-estabelecidos (" ", "\t", ";", ",")
+	 * @param linha
+	 * @return string contendo o separador
+	 * @throws IOException
+	 */
+	private String obterSeparador(String linha) throws IOException {
+		String separador = null;
+		int contador = 0;
+		String[] possiveisSeparadores = new String []{" ", "\t", ";", ","};
+
+		for (int i = 0; i < possiveisSeparadores.length; i++) 
+			if (linha.contains(possiveisSeparadores[i].toString())) {
+				separador=possiveisSeparadores[i];
+				contador++;
+			}
+
+		if(contador != 1)
+			throw new IOException( ( contador > 1 ) ? "There is more than one separator in the file." : "Separator not found.");
+
+		if(separador == null)
+			throw new IOException("Separator not found in file.");
+
+		return separador;
+	}
+
+	/**
+	 * Realiza leitura de arquivo retornando uma lista onde cada elemento é o conteudo de uma linha
+	 * @param endereco
+	 * @return lista contendo linhas do arquivo
+	 * @throws IOException
+	 */
+	public List<String> lerArquivo(String endereco) throws IOException {
+		try{
+			List<String> lsLinhasArq = new ArrayList<>();
+			BufferedReader brPED = new BufferedReader(new FileReader(new File(endereco)));
+			while(brPED.ready()){
+				lsLinhasArq.add(brPED.readLine());
+			}
+			brPED.close();
+			return lsLinhasArq;
+		} catch (IOException e){
+			throw new IOException("Error reading file: \n" + e.getMessage());
+		}
+	}
+
+	@Override
+	/**
+	 * Cria diretorio onde s��o salvos arquivos da analise
+	 * @return boolean indicando sucesso
+	 * @throws IOException 
+	 */
+	public boolean criarDiretorioSave() throws IOException {
+		try{
+			if(new File(ENDERECO_SAVE).exists())
+				Arquivo.limparPasta(new File(ENDERECO_SAVE));
+			else new File(ENDERECO_SAVE).mkdirs();
+			return true;
+		}catch(IOException e){
+			throw new IOException("Error creating save directory or deleting yours files");
+		}
+	}
+
+	@Override
+	/**
+	 * Armazena lista de String em um arquivo onde cada posicao da lista �� uma linha do arquivo
+	 * @param snpsjanela
+	 * @param string
+	 * @return String com o endereco do arquivo gerado
+	 */
+	public String salvarListaJanelaHaplotipica(ArrayList<String> listaLinhas, String nome) throws IOException {
+		String endereco = "";
+		try{
+			endereco = "./win_"+nome;
+
+			BufferedWriter bw = new BufferedWriter(new FileWriter(new File(endereco)));
+			for (int i = 0; i < listaLinhas.size(); i++) {
+				bw.write(listaLinhas.get(i));
+				bw.newLine();
+			}
+			bw.close();
+			return endereco;
+		}catch(IOException e){
+			throw new IOException("Error creating archive:\n" + endereco);
+		}catch (NullPointerException e) {
+			throw new NullPointerException("Error creating archive.\n List of lines is " + listaLinhas);
+		}
+	}
+
+	/**
+	 * Verifica se a sexta coluna é "-9", caso seja, subtitui por "0"
+	 * Ao final da verificação, o arquivo é sobrescrito (Haplotipos.ped)
+	 * @param enderecoArqPlink Endere��o do arquivo
+	 * @return Nome do arquivo criado;
+	 * @throws IOException
+	 */
+	public String alterarArqPlink(String enderecoArqPlink) throws IOException{		
+		String linha        = "";
+		String linhaTratada = "";
+		abrirArquivoLeitura(enderecoArqPlink);
+		abrirArquivoEscrita(ENDERECO_PLINK_TRATADO + "temp");
+		linha = lerLinhaArquivo();
+		while(!linha.isEmpty()){
+			linhaTratada = linha.replaceFirst("-9", "0");
+			gravarLinha(linhaTratada);
+			linha = lerLinhaArquivo();
+			
+		}		
+		Arquivo.deletarRecursivamente(new File(enderecoArqPlink));
+		new File(ENDERECO_PLINK_TRATADO + "temp").renameTo(new File(ENDERECO_PLINK_TRATADO));
+		fecharArquivoEscrita();
+		fecharArquivoLeitura();
+								
+		return ENDERECO_PLINK_TRATADO;
+	}
+
+	@Override
+	/**
+	 * Realiza o registro do conteudo de uma lista recebida por parametro em um arquivo
+	 * Cada elemento da lista ser�� uma linha do arquivo
+	 * @param lsArqTratado
+	 * @param nomeArq
+	 * @return
+	 */
+	public String gravarArquivoRaiz(List<String> lsArq, String nomeArq) throws IOException {
+		try {
+			BufferedWriter bw = new BufferedWriter(new FileWriter(new File("./" + nomeArq)));
+			for (int i = 0; i < lsArq.size(); i++) {
+				bw.write(lsArq.get(i));
+				bw.newLine();
+			}
+			bw.close();
+			 return "./" + nomeArq;
+		} catch (IOException e) {
+			throw new IOException("Error writting file:\n" + nomeArq);
+		}
+	}
+
+	/**
+	 * Le o arquivo até encontrar o cabeçalho Hapminer.
+	 * Após isso, separa o arquivo em dois:
+	 * 	1 - Apartir do início até Hapminer
+	 *  2 - Apartir HapMiner até ecnontrar Genetic ou EoF
+	 * @param arqGeradoHm Caminho do arquivo
+	 * @return Vetor com o caminho dos dois arquivos
+	 */
+	@Override
+	public String[] alterarArqHM(String arqGeradoHm, String snp)  throws IOException{
+		BufferedReader br 	   = null;
+		StringBuilder  builderComGenetic = new StringBuilder();
+		StringBuilder  builderComHapMiner = new StringBuilder();	
+		
+		try{
+			br = new BufferedReader(new FileReader(arqGeradoHm));
+		} catch (FileNotFoundException e ){
+			throw new FileNotFoundException("The file " + arqGeradoHm + " was not found!");
+		}
+		
+		while(br.ready()){
+			String linha = br.readLine();
+			if(!linha.contains("HapMiner")){
+				builderComGenetic.append(linha);
+				builderComGenetic.append("\n");
+			}else{
+				builderComHapMiner.append(linha);
+				builderComHapMiner.append("\n");
+				break;
+			}
+		}
+		
+		builderComHapMiner.append(br.readLine());
+		br.close();
+		gravarArquivo(builderComGenetic.toString(), ENDERECO_ARQ_HM_TRATADO[0] + "-" + snp);
+		gravarArquivo(builderComHapMiner.toString(), ENDERECO_ARQ_HM_TRATADO[1]);
+		Arquivo.deletarRecursivamente(arqGeradoHm);
+		
+		return new String[]{ENDERECO_ARQ_HM_TRATADO[0] + "-" + snp, ENDERECO_ARQ_HM_TRATADO[1]};
+	}
+
+	/**
+	 * Executa comando do PLink e manipula arquivos para obter sucesso nos procedimentos do PLink
+	 * 
+	 * @param vetDatabase
+	 * @param listaOpcoesAA
+	 * @param listaCovariates
+	 * @throws IOException
+	 */
+	@Override
+	public File salvarJanelaSnp(ArrayList<String> janela) throws IOException {
+		File file 			   = new File(ENDERECO_JANELA_SNPS);				
+		StringBuilder  builder = new StringBuilder();
+		
+		if(janela == null || janela.isEmpty())
+			throw new NullPointerException("The snps's rol is empty");
+		
+		for(String snp : janela){
+			builder.append(snp);
+			builder.append("\n");
+		}
+		try{
+			BufferedWriter bw      = new BufferedWriter(new FileWriter(file));
+			bw.write(builder.toString());
+			bw.close();
+		}catch(IOException e){
+			throw new IOException("Error at creating the file " + ENDERECO_JANELA_SNPS);
+		}
+		return file;
+	}
+
+	/**
+	 * Realiza o registro de um texto recebido por parametro em um arquivo
+	 * 
+	 * @param texto Texto a ser gravado
+	 * @param enderecoArquivo Endereço do arquivo 
+	 */
+	@Override
+	public void gravarArquivo(String texto, String enderecoArquivo) throws IOException {
+		File file = new File(enderecoArquivo);
+		FileWriter fW;
+		
+		try{
+			fW = new FileWriter(file);
+		}catch(IOException e){
+			throw new IOException("The path "+ enderecoArquivo +" does not exists!");
+		}
+		
+		try{
+			BufferedWriter bw = new BufferedWriter(fW);
+			bw.write(texto);
+			bw.close();
+		} catch (IOException e) {
+			throw new IOException("Error at creating the file " + enderecoArquivo);
+		}
+		
+	}
+
+	/**
+	 * Gera o arquivo HaplotipicaLD.ped com base na lista enviada como parametro.
+	 * @param pedHaplotiposLdTratado lista tratada do tmpHAPLOTIPOSLD.ped
+	 * @return true se sucesso
+	 * @throws IOException 
+	 */
+	@Override
+	public boolean SalvarHaplotipicaLD(ArrayList<String> pedHaplotiposLdTratado) throws IOException {
+		File f = new File(ENDERECO_HAPLOTIPICALD_PEDTRATADA);
+		try {
+			BufferedWriter bw = new BufferedWriter(new FileWriter(f));
+			for(String linha: pedHaplotiposLdTratado){
+				bw.write(linha+"\n");
+			}
+			bw.close();
+		} catch (IOException e) {
+			throw new IOException("Error at creating file "+ ENDERECO_HAPLOTIPICALD_PEDTRATADA);
+		}
+		return true;
+	}
+
+	/**
+	 * Método que move as imagens criadas pelo haploview para a pasta desejada.
+	 * @param nomeSnp Nome do Snp para identificar o diretório a ser removido
+	 * @return true se a operação não jogou Exception
+	 * @throws IOException 
+	 */
+	@Override
+	public boolean moverArquivosLD(String nomeSnp) throws IOException {
+		String enderecoDirSnp = "./save/FM/Haplotipica/"+nomeSnp;
+		List<String> todosArquivos = popularArquivosLD();
+		try{
+
+			Arquivo.moverArquivo(todosArquivos.get(0), enderecoDirSnp, "HaplotipicaLD_ped_4GAM.txt");
+			Arquivo.moverArquivo(todosArquivos.get(1), enderecoDirSnp, "HaplotipicaLD.png");
+			Arquivo.moverArquivo(todosArquivos.get(2), enderecoDirSnp, "HaplotipicaLD_ped_SPINE.txt");
+			
+			
+			if (new File(todosArquivos.get(3)).exists()){ //Esse aqui é o GABRIELblocks que pode ou não ser criado.
+				String arquivo = todosArquivos.get(3);
+				System.out.println(new Date() + " - Moving file " +  arquivo + " to " + enderecoDirSnp);
+				Arquivo.moverArquivo(todosArquivos.get(3), enderecoDirSnp,"HaplotipicaLD_ped_GABRIEL.txt");
+			}
+		}catch(IOException e){
+			throw new IOException("Could not move the file: "+ todosArquivos.get(3));
+		}
+		
+		return true;
+	}
+	
+	/**
+	 * Método usado para popular a lista de String com os caminhos a serem movidos
+	 * @return retorna uma lista de String contendo o caminho dos arquivos a serem deletados
+	 */
+	private List<String> popularArquivosLD(){
+		String ENDERECO_4GAMblocks = "./HaplotipicaLD.ped.4GAMblocks";
+		String ENDERECO_PNG = "./HaplotipicaLD.ped.LD.PNG";
+		String ENDERECO_SPINEblocks= "./HaplotipicaLD.ped.SPINEblocks";
+		String ENDERECO_GABRIELblocks= "./HaplotipicaLD.ped.GABRIELblocks";
+		
+		List<String> todosArquivos= new ArrayList<String>(Arrays.asList(ENDERECO_4GAMblocks,ENDERECO_PNG, ENDERECO_SPINEblocks, ENDERECO_GABRIELblocks));
+		return todosArquivos;
+	}
+
+
+	/**
+	 * Método que deleta todos os arquivos gerados pelo PlinkLD
+	 * @return true se sucesso
+	 * @throws FileNotFoundException 
+	 */
+	@Override
+	public boolean deletarArqGeradoPlinkLD() throws FileNotFoundException {
+		
+		List<String> adeletar= populaListaDelete();
+		
+		try{
+			for(String s : adeletar){
+				System.out.println(new Date() + " - Deleting file: " + s);
+				Arquivo.deletarRecursivamente(s);
+			}
+		}catch (FileNotFoundException e){
+			throw new FileNotFoundException("File tmpHaploticaLD could not be deleted");
+		}
+		
+		return true;
+	}
+	
+	/**
+	 * método auxiliar para popular a array que deleta os arquivos gerados pelo PlinkLD
+	 * @return retorna a array com os caminhos a serem deletados
+	 */
+	private List<String> populaListaDelete(){
+		List<String> aDeletar = new ArrayList<String>();
+		
+		aDeletar.add(ENDERECO_TMPHAPLOTICALD_LOG);
+		aDeletar.add(ENDERECO_TMPHAPLOTICALD_MAP);
+		aDeletar.add(ENDERECO_TMPHAPLOTICALD_PED);
+		aDeletar.add(ENDERECO_HAPLOTIPICALD_PEDTRATADA);
+		
+		return aDeletar;
+	}
+
+	/**
+	 * Método que deleta .ped dentro das pastas do SNPS da pasta save.
+	 * @param nomeSnp Nome do Snp para identificar o diretório a ser removido.
+	 * @return true se sucesso.
+	 * @throws FileNotFoundException 
+	 */
+	@Override
+	public boolean deletarPedsSave(String nomeSnp) throws FileNotFoundException {
+		String enderecoDirSnp = "./save/FM/Haplotipica/"+nomeSnp;
+		try{
+		Arquivo.deletarRecursivamente( enderecoDirSnp+ NOME_ARQUIVO_HAPLOTIPO_PED );
+		}catch(FileNotFoundException e){
+			throw new FileNotFoundException("Could not find Haplotipos.ped in the "+ enderecoDirSnp+ " folder");
+		}
+		return true;
+	}
+
+	@Override
+	public void salvarAnalise() throws Exception {
+		new SaveView("HaplotypeAnalysis", new File("./save/FM/Haplotipica/"));
+	}
+
+	@Override
+	public boolean moverArquivoGeradosHaplotipica() throws IOException {
+		try{
+				Arquivo.moverArquivo(ENDERECO_HaplotipicaChamaR, ENDERECO_SAVE, "Relatorio_Analise_Haplotipos.pdf");
+				Arquivo.moverArquivo(ENDERECO_7SNPS, ENDERECO_SAVE);
+				Arquivo.moverArquivo(ENDERECO_HAPLOTIPICA_CHAMAR, ENDERECO_SAVE);
+				Arquivo.moverArquivo(ENDERECO_HAPLOTIPICA_CHAMAR_CONCORDANCE_TEX, ENDERECO_SAVE);
+				Arquivo.moverArquivo(ENDERECO_HAPLOTIPICA_CHAMAR_LOG, ENDERECO_SAVE);
+				Arquivo.moverArquivo(ENDERECO_HAPLOTIPICA_CHAMAR_TEX, ENDERECO_SAVE);
+				Arquivo.moverArquivo(ENDERECO_HAPLOTIPICACHAMAR_AUX, ENDERECO_SAVE);
+				Arquivo.moverArquivo(ENDERECO_PEHONH_CSV, ENDERECO_SAVE);
+		}catch (IOException e ){
+			throw new IOException("Could not move one of the files generated in Haplotype, the file was not found or does not exist");
+		}
+			
+		return true;
+	}
+	
+	@Override
+	/**
+	 * Realiza a leitura de cada linha do arquivo,
+	 * ate o final e o fecha.
+	 * 
+	 * @return String
+	 * @throws Exception
+	 */
+	public String lerLinhaArquivo() throws IOException  {
+		String linha = BR.readLine();
+
+		if(linha == null || linha == ""){
+			fecharArquivoLeitura();		
+			return "";
+		} else {
+			return linha;
+		}
+
+	}
+
+	@Override
+	/**
+	 * Efetua a abertura do arquivo, retorna false se o 
+	 * arquivo for nulo.
+	 * 
+	 * @param map
+	 * @return boolean
+	 * @throws IOException
+	 */
+	public void abrirArquivoLeitura(String arquivo) throws IOException {
+		BR = new BufferedReader(new FileReader(new File(arquivo)));
+		
+		if (!BR.ready())
+			throw new IOException("File empty or does not exist:\n" + arquivo);		
+
+	}
+
+	@Override
+	/**
+	 * Fecha o arquivo.
+	 * 
+	 * @throws IOException
+	 */
+	public void fecharArquivoLeitura() throws IOException {
+		if(BR == null)
+			throw new IOException("Theres no file to close!");
+		BR.close();
+		
+	}
+
+	/**
+	 * Abre o arquivo para leitura
+	 * @param path
+	 * @throws IOException 
+	 */
+	@Override
+	public void abrirArquivoEscrita(String path) throws IOException {
+		Arquivo.deletarRecursivamente(path);
+		BW = new BufferedWriter(new FileWriter(path, true));		
+	}
+
+	/**
+	 * Grava linha por linha de um arquivo;
+	 * Utiliza-se do append para gravar 
+	 */
+	@Override
+	public void gravarLinha(String linha) throws IOException {
+		if(BW == null)
+			throw new IOException("The file is not oppened for writing!");
+		BW.write(linha);
+		BW.newLine();		
+	}
+
+	/**
+	 * Fecha o arquivo de escrita
+	 * 
+	 * @throws IOException
+	 */
+	@Override
+	public void fecharArquivoEscrita() throws IOException {
+		if(BW == null)
+			throw new IOException("Theres no file to close!");
+		BW.close();			
+	}
+	
+}

@@ -1,0 +1,41 @@
+package testJUnit.DA;
+
+import static org.junit.Assert.*;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import dao.DescriptiveAnalysisDao;
+import dao.DescriptiveAnalysisDaoImp;
+import exception.DescriptiveAnalysisDaoException;
+
+public class UC02REQ06GravarVarRespostaException {
+
+	private static String sexo;
+	private static String varResposta;
+	private static String categoria;
+	
+	private static DescriptiveAnalysisDao daoDA = new DescriptiveAnalysisDaoImp();
+	
+	@BeforeClass
+	public static void beforeTest(){
+		sexo = "";
+		varResposta = "";
+		categoria = "";
+	}
+
+	/*
+	 * Este teste nao esta passando pela exception, e necessario verificar
+	 */
+	@Test(expected=DescriptiveAnalysisDaoException.class)
+	public void UC02REQ06FE01GravarVarResposta() throws DescriptiveAnalysisDaoException {
+		assertEquals("Resultado esperado", true, daoDA.gravarVarResposta(sexo, varResposta, categoria));
+	}
+	
+	@AfterClass
+	public static void after(){
+		 daoDA = null;
+	}
+
+}

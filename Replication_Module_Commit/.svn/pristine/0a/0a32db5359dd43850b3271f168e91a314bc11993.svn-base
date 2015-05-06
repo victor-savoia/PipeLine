@@ -1,0 +1,79 @@
+package rScript;
+
+/**
+ * Enumeração de arquivos usados pelo R
+ * 
+ * Serão listados os scripts R, com os atributos
+ * nome e endereço.
+ * @author bruno
+ *
+ */
+public enum RScriptFiles {
+	
+	CONTINUA_COM	  ("SweaveContinuaCOM.R"             ,"./system_Files/AssociationAnalysis/SweaveContinuaCOM.R"),
+	CONTINUA_SEM	  ("SweaveContinuaSEM.R"             ,"./system_Files/AssociationAnalysis/SweaveContinuaSEM.R"),
+	CATEGORICA_COM    ("SweaveCategoricaCOM.R"           ,"./system_Files/AssociationAnalysis/SweaveCategoricaCOM.R"),
+	CATEGORICA_SEM    ("SweaveCategoricaSEM.R"           ,"./system_Files/AssociationAnalysis/SweaveCategoricaSEM.R"),
+	AAF_COMSNP_COMCOV ("AssociationAnalysisComSnpCov.R"  ,"./system_Files/AssociationAnalysisFamily/AssociationAnalysisComSnpCov.R"),
+	AAF_COMSNP_SEMCOV ("AssociationAnalysisComSnp.R"	 ,"./system_Files/AssociationAnalysisFamily/AssociationAnalysisComSnp.R"),
+	AAF_SEMSNP_COMCOV ("AssociationAnalysisSemSnpCov.R"  ,"./system_Files/AssociationAnalysisFamily/AssociationAnalysisSemSnpCov.R"),
+	AAF_SEMSNP_SEMCOV ("AssociationAnalysisSemSnp.R"     ,"./system_Files/AssociationAnalysisFamily/AssociationAnalysisSemSnp.R"),
+	CONTINUA		  ("SweaveContinua.R"		  		 ,"./system_Files/SweaveContinua.R"),
+	CATEGORICA_2	  ("SweaveCategorica2.R"	         ,"./system_Files/SweaveCategorica2.R"),
+	CATEGORICA_2_MAIS ("SweaveCategorica2+.R"	         ,"./system_Files/SweaveCategorica2+.R"),
+	TRACK			  ("trackR.R"				         ,"./system_Files/Track/trackR.R"),
+	FMINPUT			  ("ImputeR.R"			             ,"./system_Files/FM/ImputeR.R"),
+	SETESNPS		  ("7SNPs.R"				         ,"./system_Files/FM/FMHaplotipica/7SNPs.R"),
+	HAPLO			  ("HaplotipicaChamaR.R"	         ,"./system_Files/FM/FMHaplotipica/HaplotipicaChamaR.R"),
+	FMINPUTHAPLOT	  ("inputHaplot.R"		             ,"./system_Files/FM/InputHaplot/inputHaplot.R"),
+	MANHATTAN         ("manhattan_qqplot_bancousuario.R" ,"./PV/manhattan_qqplot_bancousuario.R"),
+	JASON         	  ("funcionJASON-deisy.R"			 ,"./system_Files/FM/funcionJASON-deisy.R"),
+	REPLICATION_COVAR ("ReplicationChamaR_Covar.R"		 ,"./system_Files/Replication/ReplicationChamaR_Covar.R"),
+	REPLICATION 	  ("ReplicationChamaR.R"			 ,"./system_Files/Replication/ReplicationChamaR.R");
+
+	private RScriptFiles(String script, String endereco){
+		this.script = script;
+		this.endereco = endereco;
+	}
+	
+	private String script;
+	private String endereco;
+	
+	/**
+	 * Retorna o nome do script R
+	 * @return Uma String representando o nome do script R
+	 * 
+	 */
+	public String getScript() {
+		return script;
+	}
+	
+	/**
+	 * Retorna o endereço do script R
+	 * @return Uma String representando o endereço do script R
+	 * 
+	 */
+	public String getEndereco() {
+		return endereco;
+	}
+	
+	/**
+	 * Retorna o endereço do .Rout conforme
+	 * o sistema operacional
+	 * 
+	 * @return Uma String representando o endereço
+	 */
+	public String getROut() {
+		String so = System.getProperty("os.name");
+		
+		if(so.contains("windows"))
+			return endereco.concat("out");
+		return "./".concat(script).concat("out");
+		
+	}
+	
+	@Override
+	public String toString() {
+		return endereco;
+	}
+}

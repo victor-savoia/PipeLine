@@ -1,0 +1,29 @@
+package exception;
+
+public class DatabaseDaoException extends DaoException{
+	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -5892361632341526249L;
+
+	/**
+	 * Method 'DatabaseDaoException'
+	 * 
+	 * @param message
+	 */
+	public DatabaseDaoException(String message) {
+		super(message);
+	}
+	
+	/**
+	 * Method 'DatabaseDaoException'
+	 * 
+	 * @param message
+	 * @param cause
+	 */
+	public DatabaseDaoException(String message, Throwable cause)
+	{
+		super(message, cause);
+	}
+}

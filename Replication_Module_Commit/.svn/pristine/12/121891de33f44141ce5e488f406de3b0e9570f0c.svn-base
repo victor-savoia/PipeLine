@@ -1,0 +1,306 @@
+\documentclass[12pt]{article}
+
+\usepackage[a4paper, width=16cm, height=23cm]{geometry}
+
+\usepackage{amssymb, amsxtra}
+\usepackage{amsthm, amsfonts, amsmath}
+\usepackage{caption}
+\usepackage{color}
+\usepackage{comment}
+\usepackage{enumerate}
+\usepackage{float}
+\usepackage[T1]{fontenc}
+\usepackage{footnote}
+\usepackage{graphicx, graphics}
+\usepackage{indentfirst}  
+\usepackage[utf8]{inputenc}% latin1 para windows
+\usepackage{longtable}
+            \setlongtables
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{setspace}
+\usepackage[hang]{subfigure}
+\usepackage{Sweave}
+\usepackage[normalem]{ulem}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{lscape}
+
+
+\begin{document}
+
+
+<<label=freq, echo=F, results=hide>>=
+
+require(xtable)
+require(coxme)         # Versao 2.2-3
+require(kinship2)      # Versao 1.3.7
+require(mvtnorm)
+
+
+
+#print("entrei aqui")
+#print (vardependente)
+#vardependente <- vardependente
+#print (vardependente)
+
+#-----------------------------------------
+# Lendo o arquivo que direcciona os diferentes arquivos que carrega o usuaário -
+#-----------------------------------------
+#nome_db= read.table('./Replicacao/database.txt')  #  Nome da base com os arquivos
+#-----------------------------------------
+# Lendo os arquivos de genótipos- quye corresponde ao .ped carregado pelo usuário
+#-----------------------------------------
+#nome_geno= as.character(nome_db[2,]) ## 2da linha: o arquivo .ped fornecido pelo usuario
+print (arq_ped)
+Genotipo<-read.table(arq_ped, head=T,sep=" ")
+genotipo<-Genotipo[,-c(1,3,4,5,6)] 
+print ("li o pede")
+
+#-----------------------------------------
+# Lendo os arquivos de fenótipos-
+#-----------------------------------------
+#nome_fen= as.character(nome_db[3,]) ## terceira linha: o arquivo de fenótipos fornecido pelo usuario
+fenotipo<-read.table(fenotipos, head=T,sep="\t")
+#-----------------------------------------
+# Lendo o arquivos de pcas- provisional, quando eu pego o fenotipo ja está com as pcas
+#-----------------------------------------
+
+#nome_pca= as.character(nome_db[5,]) ## sexta linha: o arquivo de PCA fornecido pelo usuario
+pcas = read.table(pca, head=T,sep=separador_pca) ###banco com as PCAS
+fenotipopca<-merge(fenotipo,pcas,by="IID")
+fenotipo<-fenotipopca
+
+colfenotipo<-ncol(fenotipo)
+#-------------------------------------------------
+# Ordenadno os arquivos de fenótipo e genótipo pela identificação do indivĩduo IID -
+#-------------------------------------------------
+Dados<-merge(fenotipo,genotipo, by= 'IID')
+linhas = nrow(Dados)
+colunas = ncol(Dados)
+#-------------------------------------------------
+# deixando somente a matriz de SNPs -
+#-------------------------------------------------  
+snps<-Dados[,(colfenotipo+1):ncol(Dados)]
+col.gen<-ncol(snps)
+gens = colnames(snps)
+
+
+
+col.gen<-10
+
+
+print("entrei aqui")
+print (vardependente)
+vardependente <- vardependente
+
+#-------------------------------------------------
+#  Lendo a variável resposta e as covariáveis escolhidas pelo usuario-
+#-------------------------------------------------  
+#dep<-read.table('./Replicacao/Var_Questao.txt', header=T, sep=',')  ### esta é a mesma Var_Questao.txt do começo
+dep <- vardependente
+##vard<-colnames(dep)
+vard<-subset(Dados, selec=c(dep))
+#vard=variavel dependente escolhida pelo usuario
+vard<-as.matrix(vard)
+
+
+Datos<-data.frame(Dados)
+
+attach(Dados, warn.conflicts=F)
+
+#-------------------------------------------------
+# calculadno a matriz de parentesco -
+#-------------------------------------------------  
+
+##pedig = with(Dados, pedigree(id=IID, dadid=PAT, momid=MAT, sex=SEX, famid=FID, missid=0))
+kmat<-makekinship(FID,IID,PAT,MAT)
+
+#kmat = kinship(pedig)  para versões anteriores a 3.0 no R program
+
+#-------------------------------------------------
+# Criando a matriz de resultados -
+#-------------------------------------------------  
+#Resultado = data.frame(matrix(NA, nrow=col.gen, ncol=8, dimnames=list(c(), c('Cromos', 'SNP', 'pvalue', 'beta_snp', 'se', 'Sigma2_g', 'Sigma2_e', 'h2_g'))))
+
+
+####  Observação !!!! 
+
+####  Ajuste é a função com a paralelização incorporada
+#### 
+
+
+
+ajuste <-function(i){
+#for(i in 1:col.gen) {
+  require(coxme)         # Versao 2.2-3
+require(kinship2)      # Versao 1.3.7
+require(mvtnorm)
+
+
+   
+      ajuste = lmekin(vard~snps[ , i], data=Dados, random=~1|IID, varlist=list(2*kmat))
+
+      source('./funcionJASON-deisy.R')   # função para tirar os valores do ajuste do modelo
+      
+      mod = coxme.extract(ajuste)
+      var.erro = ajuste$sigma^2
+      var.pol = as.numeric(mod[[2]][1,4]) # eh fixo
+      (h2g.mod = var.pol/(var.erro + var.pol))
+      
+      mod[[1]]
+      mod[[2]] 
+      
+   
+      
+#-------------------------------------------------
+# Posição do snp sempre será o numero de colunas das covariavies + 2 -
+#-------------------------------------------------  
+
+       possnp<-2
+
+      beta<-mod[[1]][possnp,1]
+      desvio<-mod[[1]][possnp,2]
+      p<-mod[[1]][possnp,4] 
+
+
+    
+    Resultado = cbind(gens[i], p, beta, desvio, var.pol, var.erro, h2g.mod)
+   return(Resultado) 
+
+
+}
+ 
+ 
+
+
+
+np=4 ### para definir o numero de processadores a ser usado
+tudo <-ls()
+require(snow)
+cl=makeCluster(np, type='SOCK', outfile = 'saidadoprocesso.txt')   ### dentro do cluster trocar SOCK por MPI.
+clusterExport(cl,tudo)
+
+#save.image("Val.RData")
+saida<-clusterApplyLB(cl,1:col.gen,ajuste)
+stopCluster(cl)
+
+
+
+saidao <- saida[[1]]
+for (i in 1 : length(saida)){
+  saidao <- rbind(saidao, saida[[i]])
+}
+Resultado <- saidao
+
+#-------------------------------------------------
+# Organizando o Resultado de acordo com o menor pvalor - 
+#-------------------------------------------------  
+
+us1<-Resultado[order(Resultado[,2],decreasing=FALSE),]
+colnames(us1)<-c('SNP','p','beta','desvio','var.pol','var.erro','h2g.mod')
+u<-nrow(us1)
+u<-nrow(us1)
+
+#-------------------------------------------------
+# Se us1 tem menos de 50 apresenta a Tabela com todos, se for maior do que 50, apresenta a Tabela somente com os 50 menores pvalores - 
+#-------------------------------------------------  
+
+if(u>50) {
+   us1<-us1[1:50,]
+} else {
+    us1<-us1
+}
+
+
+###############################################################
+# Escrevendo a Tabela de Resultados totais-  Chamo esta Tabela porque já estão os dados sem aspas.
+###############################################################
+
+write.table(us1, './RESULTADOS_Rep.txt',row.names=F, col.names=T, quote=F, sep=',')
+us1<-read.table('./RESULTADOS_Rep.txt',h=T, sep=',')
+
+@
+
+
+\section*{Report}
+
+Mixed models have been used extensively in quantitative genetics to study the familial agregation of quantitative phenotypes. 
+
+In the following sections we describe the polygenic mixed model and present the results obtained from the application in the study of phenotype \textit{\nomedavariavel}\
+of Baependi Project.
+
+\section*{The Polygenic Mixed Model}
+
+The model we describe here represents the quantitative phenotype of the $f_{th}$ family as a function of fixed and random effects:
+\begin{eqnarray}
+\label{mmpoligenico}
+\textbf{Y}_{f}=\textbf{X}_{f}\beta+{\bf{g}}_{f}+{\bf{e}}_{f},~~ f=1,...,F,
+\end{eqnarray}
+\noindent where $\textbf{Y}_{f}$ is the vector of the observed values of the $f_{th}$ family, $\textbf{X}_{f}$ represents the planning matrix ($ n_{f}\times p $) known and full rank, $\beta$  is a vector ($ p\times 1 $) of parameters (fixed effects), ${\bf{g}}_{f}$ is the unobservable vector of the additive random genetic effects and ${\bf{e}}_{f}$ is the vector of environmental effects for the $f_{th}$ family, $i = 1, 2, . . . , F$.
+In general, the random effects ${\bf{g}}_{f}$ and ${\bf{e}}_{f}$ are assumed uncorrelated with mean zero and variance $\sigma^{2}_{g}$ and $\sigma^{2}_{e}$, respectively.   Thus the variance of $\bf{Y}$ denoted by $\sigma^{2}_{y}$ is the sum $\sigma^{2}_{y}=\sigma^{2}_{g}+\sigma^{2}_{e}$.
+
+\vspace{0.5 cm}
+
+\noindent {\bf{The relationship matrix }}
+
+\vspace{0.5 cm}
+
+Under this formulation the covariance between the response variables for individuals $i$ and $i^{'}$ in the families $f$ and $f^{'}$  is given by
+
+$$
+Cov(y_{if},y_{i^{'}f^{'}})=\left\{ \begin{array}{ll}
+\sigma^{2}_{g}+\sigma^{2}_{e} \mbox{ for $i=i^{'}$} \\
+2\phi_{ii^{'}}\sigma^{2}_{g} \mbox{ for $i\neq i^{'}$ and $f=f^{'}$ (related)},\\
+0 \mbox{ to}\ i \neq i^{'} \mbox{ and $f\neq f^{'}$ (no-relates)}.
+       \end{array} \right.
+$$
+
+\noindent The parameter $2\phi_{ii^{'}}$  is defined as the coefficient of relationship between the individuals $i$ and $i^{'}$ which is given by $(\frac{1}{2})^{r}$, where $r$ represents the degree of relationship, for example, 1/2 for full sibs and parent-offspring. Considering all the families, the covariance matrix can be defined as ${\bf{V}}=2{\bf{\Phi}}\sigma^{2}_{g} + {\bf{I}}\sigma^{2}_{e}$, with $2\bf{\Phi}$ be a block diagonal matrix (under independence between families) and ${\bf{I}}$ is the identity matrix.
+
+\vspace{0.5 cm}
+
+\noindent {\bf{Heritability}}
+
+\vspace{0.5 cm}
+
+The Heritability (intraclass correlation coefficient) is an important concept in genetics, defined as the proportion of total variance that is due to genetic components. Considering the model \ref{mmpoligenico}, the heritability is given by
+
+\begin{eqnarray}
+\label{herdabilidade}
+h^{2}_{g}=\frac{\sigma^{2}_{g}}{\sigma^{2}_{g}+\sigma^{2}_{e}}.
+\end{eqnarray}
+
+\noindent If $h^{2}_{g}$ is small it can be inferred that the response variable is not regulated predominantly by genetic factors.
+
+\section*{Results}
+
+For this specific case, $\bf{Y}$ represents the vector of values of variable \textit{\nomedavariavel}\ .  Our interest is know which SNPs are influencing this variable by adjusting the poligenic mixed model described in (1).  
+In order to capture the effect of SNP some covariates were included in the model, these covariates are
+shown in the Table 1, in the last column, $X$ represents each SNP adjusted in the model (one
+SNP in each fit)
+
+@
+
+Denoting by $\beta_{snp}$ the effect of SNP on \textit{\nomedavariavel}, the hypothesis being contrasted to obtain the statistical significance of this parameter is given by:
+\begin{eqnarray}
+H_{0}: \beta_{snp}=0 \\
+H_{1}: \beta_{snp} \neq 0,
+\end{eqnarray}
+
+\noindent  it  conducts an $F$-test, to test the null hypothesis.
+
+In the  Table \ref{tab:cutof} the SNPs with $p$-values smaller than $1\times 10^{-5}$ are presented as well as the corresponding estimates of the parameter $\beta_{snp}$ and the respective deviation. Also in this table are presented the estimates of the variance components and heritability when incorporated the SNP in the model as fixed effect.
+
+\SweaveOpts{echo=false}
+<<results=tex>>=
+Tab2=xtable(us1, digits=6, caption= 'SNPs with the lowest pvalor',
+label='tab:cutof')
+print(Tab2, caption.placement='top')
+@
+
+
+
+\end{document}
+
